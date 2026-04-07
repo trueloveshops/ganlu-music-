@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>甘露法語後台管理</title>
+  <style>
+    :root {
+      --fg:#eef7f6;
+      --muted:rgba(240,248,248,.82);
+      --card:rgba(255,255,255,.16);
+      --card2:rgba(255,255,255,.12);
+      --line:rgba(255,255,255,.22);
+      --shadow:0 18px 60px rgba(0,0,0,.28);
+      --danger:#ffb4b4;
+      --ok:#d6ffe8;
+      --accent:#f3ead1;
+    }
+    * { box-sizing:border-box; }
+    html, body {
+      margin:0;
+      min-height:100%;
+      font-family:"Noto Serif TC","Microsoft JhengHei",serif;
+      color:var(--fg);
+      background:
+        radial-gradient(circle at top, rgba(140,180,160,.24), transparent 35%),
+        linear-gradient(180deg, #0d1417 0%, #122027 45%, #0b1114 100%);
+    }
+    body {
+      padding:20px;
+    }
+    .wrap {
+      width:min(1100px, 100%);
+      margin:0 auto;
+    }
+    .hero {
+      margin-bottom:18px;
+      padding:18px 20px;
+      border-radius:24px;
+      background:var(--card2);
+      border:1px solid var(--line);
+      backdrop-filter: blur(12px);
+      box-shadow:var(--shadow);
+    }
+    .hero h1 {
+      margin:0 0 8px;
+      font-size:28px;
+      letter-spacing:2px;
+    }
+    .hero p {
+      margin:0;
+      color:var(--muted);
+      line-height:1.7;
+      font-size:14px;
+    }
+    .grid {
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:18px;
+      align-items:start;
+    }
+    .card {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:18px;
+      backdrop-filter: blur(14px);
+      box-shadow:var(--shadow);
+    }
+    .card h2 {
+      margin:0 0 14px;
+      font-size:20px;
+      letter-spacing:1px;
+    }
+    .field {
+      margin-bottom:12px;
+    }
+    .field label {
+      display:block;
+      margin-bottom:6px;
+      color:var(--muted);
+      font-size:13px;
+    }
+    input[type="text"], input[type="email"], input[type="password"], input[type="number"], textarea, select {
+      width:100%;
+      border:none;
+      outline:none;
+      border-radius:16px;
+      padding:12px 14px;
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.14);
+      color:var(--fg);
+      font-size:15px;
+    }
+    textarea {
+      min-height:140px;
+      resize:vertical;
+      line-height:1.7;
+    }
+    input::placeholder, textarea::placeholder {
+      color:rgba(240,248,248,.52);
+    }
+    .row {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .btns {
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    button {
+      border:none;
+      cursor:pointer;
+      border-radius:999px;
+      padding:11px 16px;
+      font-size:14px;
+      font-family:inherit;
+      transition:transform .15s ease, opacity .15s ease;
+    }
+    button:hover { transform:translateY(-1px); }
+    button:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+    .btn-main {
+      background:rgba(255,255,255,.18);
+      color:var(--fg);
+      border:1px solid rgba(255,255,255,.18);
+    }
+    .btn-accent {
+      background:rgba(243,234,209,.18);
+      color:#fff7e8;
+      border:1px solid rgba(243,234,209,.25);
+    }
+    .btn-danger {
+      background:rgba(255,120,120,.14);
+      color:#ffe5e5;
+      border:1px solid rgba(255,150,150,.24);
+    }
+    .msg {
+      margin-top:10px;
+      min-height:20px;
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.5;
+      white-space:pre-wrap;
+    }
+    .msg.error { color: var(--danger); }
+    .msg.ok { color: var(--ok); }
+    .toolbar {
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      margin-bottom:14px;
+      flex-wrap:wrap;
+    }
+    .toolbar .meta {
+      font-size:13px;
+      color:var(--muted);
+    }
+    .list {
+      display:grid;
+      gap:12px;
+    }
+    .item {
+      border-radius:20px;
+      padding:14px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+    }
+    .item-head {
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      margin-bottom:8px;
+    }
+    .item-title {
+      font-size:16px;
+      font-weight:700;
+      line-height:1.5;
+    }
+    .badge {
+      display:inline-flex;
+      align-items:center;
+      padding:5px 10px;
+      border-radius:999px;
+      font-size:12px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      white-space:nowrap;
+    }
+    .item-meta {
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      color:var(--muted);
+      font-size:12px;
+      margin-bottom:10px;
+    }
+    .item-text {
+      font-size:14px;
+      line-height:1.8;
+      color:var(--fg);
+      white-space:pre-wrap;
+      max-height:86px;
+      overflow:auto;
+    }
+    .item-links {
+      margin-top:10px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      font-size:12px;
+    }
+    .item-links a {
+      color:#e9f5f3;
+      opacity:.9;
+      text-decoration:none;
+      border-bottom:1px solid rgba(255,255,255,.24);
+    }
+    .item-actions {
+      margin-top:12px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .hidden { display:none !important; }
+    .small {
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.7;
+    }
+    .preview {
+      margin-top:10px;
+      border-radius:18px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.08);
+      min-height:80px;
+      display:grid;
+      place-items:center;
+    }
+    .preview img {
+      width:100%;
+      display:block;
+      max-height:220px;
+      object-fit:cover;
+    }
+    @media (max-width: 920px) {
+      .grid { grid-template-columns:1fr; }
+    }
+    @media (max-width: 640px) {
+      body { padding:14px; }
+      .hero h1 { font-size:23px; }
+      .row { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>甘露法語後台管理</h1>
+      <p>這個後台只管理資料，不動你已定稿的前台版面。登入成功後，你可以新增、編輯、刪除、發布或下架法語資料。前台會讀取 Firestore 的 <code>phrases</code> 集合。</p>
+    </section>
+
+    <div class="grid">
+      <section class="card" id="loginCard">
+        <h2>管理員登入</h2>
+        <div class="field">
+          <label for="email">管理員 Email</label>
+          <input id="email" type="email" placeholder="you@example.com" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label for="password">密碼</label>
+          <input id="password" type="password" placeholder="請輸入密碼" autocomplete="current-password" />
+        </div>
+        <div class="btns">
+          <button class="btn-accent" id="loginBtn">登入</button>
+        </div>
+        <div class="msg" id="loginMsg"></div>
+        <p class="small">只允許你指定的管理員 Email 進入。就算其他人知道網址，只要不是管理員帳號，就會被登出。</p>
+      </section>
+
+      <section class="card hidden" id="editorCard">
+        <div class="toolbar">
+          <div>
+            <h2 style="margin:0 0 6px;">法語資料編輯</h2>
+            <div class="meta" id="authMeta">未登入</div>
+          </div>
+          <div class="btns">
+            <button class="btn-main" id="resetBtn" type="button">清空表單</button>
+            <button class="btn-danger" id="logoutBtn" type="button">登出</button>
+          </div>
+        </div>
+
+        <input id="docId" type="hidden" />
+
+        <div class="field">
+          <label for="title">標題</label>
+          <input id="title" type="text" placeholder="例如：甘露法語 001" />
+        </div>
+
+        <div class="field">
+          <label for="text">內容文字</label>
+          <textarea id="text" placeholder="輸入法語內容"></textarea>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="date">來源 / 日期</label>
+            <input id="date" type="text" placeholder="例如：DVD745 或 清海無上師…" />
+          </div>
+          <div class="field">
+            <label for="sourceUrl">來源網址</label>
+            <input id="sourceUrl" type="text" placeholder="https://..." />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="audioUrl">MP3 音檔網址</label>
+            <input id="audioUrl" type="text" placeholder="https://...mp3" />
+          </div>
+          <div class="field">
+            <label for="imageUrl">圖片網址</label>
+            <input id="imageUrl" type="text" placeholder="https://...jpg" />
+          </div>
+        </div>
+
+        <div class="preview" id="imagePreviewWrap">
+          <span class="small" id="previewPlaceholder">圖片預覽會顯示在這裡</span>
+          <img id="imagePreview" class="hidden" alt="圖片預覽" />
+        </div>
+
+        <div class="row" style="margin-top:12px;">
+          <div class="field">
+            <label for="order">排序</label>
+            <input id="order" type="number" min="0" step="1" placeholder="例如：1" />
+          </div>
+          <div class="field">
+            <label for="published">狀態</label>
+            <select id="published">
+              <option value="true">發布</option>
+              <option value="false">下架</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="btns">
+          <button class="btn-accent" id="saveBtn" type="button">儲存</button>
+        </div>
+        <div class="msg" id="saveMsg"></div>
+      </section>
+    </div>
+
+    <section class="card hidden" id="listCard" style="margin-top:18px;">
+      <div class="toolbar">
+        <div>
+          <h2 style="margin:0 0 6px;">法語列表</h2>
+          <div class="meta" id="countMeta">共 0 筆</div>
+        </div>
+        <div class="btns">
+          <button class="btn-main" id="refreshBtn" type="button">重新整理</button>
+        </div>
+      </div>
+      <div class="list" id="list"></div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      signOut
+    } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      getDocs,
+      getDoc,
+      doc,
+      updateDoc,
+      deleteDoc,
+      query,
+      orderBy,
+      serverTimestamp
+    } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+
+    const FIREBASE_CONFIG = {
+      apiKey: 'AIzaSyBoJ0byHJGwOHCkUmyZkx1jXLrctYYdzSM',
+      authDomain: 'ganlu-music.firebaseapp.com',
+      projectId: 'ganlu-music',
+      appId: '1:661017374980:web:904c57d0f61fb9b51ba051'
+    };
+
+    const ADMIN_EMAIL = 'trueloveshops@gmail.com';
+
+    const loginCard = document.getElementById('loginCard');
+    const editorCard = document.getElementById('editorCard');
+    const listCard = document.getElementById('listCard');
+    const listEl = document.getElementById('list');
+    const countMeta = document.getElementById('countMeta');
+    const authMeta = document.getElementById('authMeta');
+
+    const emailEl = document.getElementById('email');
+    const passwordEl = document.getElementById('password');
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const loginMsg = document.getElementById('loginMsg');
+    const saveMsg = document.getElementById('saveMsg');
+
+    const docIdEl = document.getElementById('docId');
+    const titleEl = document.getElementById('title');
+    const textEl = document.getElementById('text');
+    const dateEl = document.getElementById('date');
+    const sourceUrlEl = document.getElementById('sourceUrl');
+    const audioUrlEl = document.getElementById('audioUrl');
+    const imageUrlEl = document.getElementById('imageUrl');
+    const orderEl = document.getElementById('order');
+    const publishedEl = document.getElementById('published');
+    const saveBtn = document.getElementById('saveBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewPlaceholder = document.getElementById('previewPlaceholder');
+
+    function missingFirebaseConfig(cfg) {
+      return Object.values(cfg).some(v => !v || String(v).includes('請填入'));
+    }
+
+    if (missingFirebaseConfig(FIREBASE_CONFIG) || !ADMIN_EMAIL || ADMIN_EMAIL.includes('請改成')) {
+      loginMsg.className = 'msg error';
+      loginMsg.textContent = '請先打開 admin.html，填入 FIREBASE_CONFIG 與 ADMIN_EMAIL 後再使用。';
+      loginBtn.disabled = true;
+      throw new Error('Firebase config or admin email not configured.');
+    }
+
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    function setMessage(el, text = '', type = '') {
+      el.textContent = text;
+      el.className = 'msg' + (type ? ' ' + type : '');
+    }
+
+    function clearForm() {
+      docIdEl.value = '';
+      titleEl.value = '';
+      textEl.value = '';
+      dateEl.value = '';
+      sourceUrlEl.value = '';
+      audioUrlEl.value = '';
+      imageUrlEl.value = '';
+      orderEl.value = '';
+      publishedEl.value = 'true';
+      updatePreview('');
+      setMessage(saveMsg, '');
+    }
+
+    function updatePreview(url) {
+      const safeUrl = (url || '').trim();
+      if (!safeUrl) {
+        imagePreview.classList.add('hidden');
+        imagePreview.removeAttribute('src');
+        previewPlaceholder.classList.remove('hidden');
+        return;
+      }
+      imagePreview.src = safeUrl;
+      imagePreview.classList.remove('hidden');
+      previewPlaceholder.classList.add('hidden');
+    }
+
+    function escapeHtml(str = '') {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function normalizePayload() {
+      return {
+        title: titleEl.value.trim(),
+        text: textEl.value.trim(),
+        date: dateEl.value.trim(),
+        url: sourceUrlEl.value.trim(),
+        audioUrl: audioUrlEl.value.trim(),
+        imageUrl: imageUrlEl.value.trim(),
+        order: Number(orderEl.value || 0),
+        published: publishedEl.value === 'true',
+        updatedAt: serverTimestamp()
+      };
+    }
+
+    async function loadList() {
+      listEl.innerHTML = '<div class="small">讀取中…</div>';
+      try {
+        const qRef = query(collection(db, 'phrases'), orderBy('order', 'asc'));
+        const snap = await getDocs(qRef);
+
+        if (snap.empty) {
+          countMeta.textContent = '共 0 筆';
+          listEl.innerHTML = '<div class="small">目前還沒有資料。</div>';
+          return;
+        }
+
+        const docs = snap.docs;
+        countMeta.textContent = `共 ${docs.length} 筆`;
+
+        listEl.innerHTML = docs.map(d => {
+          const data = d.data();
+          return `
+            <article class="item" data-id="${d.id}">
+              <div class="item-head">
+                <div class="item-title">${escapeHtml(data.title || '(未命名)')}</div>
+                <span class="badge">${data.published ? '已發布' : '已下架'}</span>
+              </div>
+              <div class="item-meta">
+                <span>排序：${Number.isFinite(data.order) ? data.order : 0}</span>
+                ${data.date ? `<span>來源：${escapeHtml(data.date)}</span>` : ''}
+              </div>
+              <div class="item-text">${escapeHtml(data.text || '')}</div>
+              <div class="item-links">
+                ${data.audioUrl ? `<a href="${escapeHtml(data.audioUrl)}" target="_blank" rel="noopener noreferrer">音檔</a>` : ''}
+                ${data.imageUrl ? `<a href="${escapeHtml(data.imageUrl)}" target="_blank" rel="noopener noreferrer">圖片</a>` : ''}
+                ${data.url ? `<a href="${escapeHtml(data.url)}" target="_blank" rel="noopener noreferrer">來源連結</a>` : ''}
+              </div>
+              <div class="item-actions">
+                <button class="btn-main" data-action="edit" data-id="${d.id}">編輯</button>
+                <button class="btn-danger" data-action="delete" data-id="${d.id}">刪除</button>
+              </div>
+            </article>
+          `;
+        }).join('');
+
+      } catch (err) {
+        countMeta.textContent = '讀取失敗';
+        listEl.innerHTML = `<div class="small" style="color:var(--danger);">${escapeHtml(err.message || String(err))}</div>`;
+      }
+    }
+
+    async function fillFormForEdit(id) {
+      try {
+        const ref = doc(db, 'phrases', id);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          setMessage(saveMsg, '找不到這筆資料。', 'error');
+          return;
+        }
+        const data = snap.data();
+        docIdEl.value = snap.id;
+        titleEl.value = data.title || '';
+        textEl.value = data.text || '';
+        dateEl.value = data.date || '';
+        sourceUrlEl.value = data.url || '';
+        audioUrlEl.value = data.audioUrl || '';
+        imageUrlEl.value = data.imageUrl || '';
+        orderEl.value = Number.isFinite(data.order) ? data.order : '';
+        publishedEl.value = String(!!data.published);
+        updatePreview(data.imageUrl || '');
+        setMessage(saveMsg, '已載入這筆資料，可直接修改後儲存。', 'ok');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err) {
+        setMessage(saveMsg, '載入失敗：' + (err.message || err), 'error');
+      }
+    }
+
+    async function handleSave() {
+      const payload = normalizePayload();
+
+      if (!payload.title || !payload.text) {
+        setMessage(saveMsg, '請至少填入標題與內容文字。', 'error');
+        return;
+      }
+
+      saveBtn.disabled = true;
+      setMessage(saveMsg, '儲存中…');
+
+      try {
+        if (docIdEl.value) {
+          await updateDoc(doc(db, 'phrases', docIdEl.value), payload);
+          setMessage(saveMsg, '更新成功。', 'ok');
+        } else {
+          payload.createdAt = serverTimestamp();
+          await addDoc(collection(db, 'phrases'), payload);
+          setMessage(saveMsg, '新增成功。', 'ok');
+        }
+        clearForm();
+        await loadList();
+      } catch (err) {
+        setMessage(saveMsg, '儲存失敗：' + (err.message || err), 'error');
+      } finally {
+        saveBtn.disabled = false;
+      }
+    }
+
+    async function handleDelete(id) {
+      const ok = window.confirm('確定要刪除這筆資料嗎？刪除後無法復原。');
+      if (!ok) return;
+      try {
+        await deleteDoc(doc(db, 'phrases', id));
+        if (docIdEl.value === id) clearForm();
+        await loadList();
+      } catch (err) {
+        alert('刪除失敗：' + (err.message || err));
+      }
+    }
+
+    loginBtn.addEventListener('click', async () => {
+      const email = emailEl.value.trim();
+      const password = passwordEl.value;
+
+      if (!email || !password) {
+        setMessage(loginMsg, '請輸入 Email 和密碼。', 'error');
+        return;
+      }
+
+      if (email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        setMessage(loginMsg, '這不是管理員帳號。', 'error');
+        return;
+      }
+
+      loginBtn.disabled = true;
+      setMessage(loginMsg, '登入中…');
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (err) {
+        setMessage(loginMsg, '登入失敗：' + (err.message || err), 'error');
+      } finally {
+        loginBtn.disabled = false;
+      }
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+      await signOut(auth);
+    });
+
+    resetBtn.addEventListener('click', clearForm);
+    saveBtn.addEventListener('click', handleSave);
+    refreshBtn.addEventListener('click', loadList);
+    imageUrlEl.addEventListener('input', () => updatePreview(imageUrlEl.value));
+
+    listEl.addEventListener('click', async (event) => {
+      const btn = event.target.closest('button[data-action]');
+      if (!btn) return;
+      const { action, id } = btn.dataset;
+      if (action === 'edit') await fillFormForEdit(id);
+      if (action === 'delete') await handleDelete(id);
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        loginCard.classList.remove('hidden');
+        editorCard.classList.add('hidden');
+        listCard.classList.add('hidden');
+        authMeta.textContent = '未登入';
+        return;
+      }
+
+      if ((user.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        await signOut(auth);
+        setMessage(loginMsg, '只有指定管理員可以登入這個後台。', 'error');
+        return;
+      }
+
+      loginCard.classList.add('hidden');
+      editorCard.classList.remove('hidden');
+      listCard.classList.remove('hidden');
+      authMeta.textContent = `目前登入：${user.email}`;
+      clearForm();
+      await loadList();
+    });
+  </script>
+</body>
+</html>
