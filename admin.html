@@ -1,367 +1,74 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>甘露法語後台管理</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f7f7f7;
-      margin: 0;
-      padding: 20px;
-      color: #222;
-    }
-    .wrap {
-      max-width: 980px;
-      margin: auto;
-    }
-    .card {
-      background: #fff;
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 18px;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.06);
-    }
-    h1, h2 {
-      margin-top: 0;
-    }
-    input, textarea, select {
-      width: 100%;
-      padding: 10px;
-      margin: 8px 0 14px;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      box-sizing: border-box;
-      font-size: 16px;
-    }
-    textarea {
-      min-height: 110px;
-      resize: vertical;
-    }
-    button {
-      border: 0;
-      border-radius: 10px;
-      padding: 10px 16px;
-      cursor: pointer;
-      margin-right: 8px;
-      margin-bottom: 8px;
-    }
-    .btn-primary { background: #2d6a4f; color: white; }
-    .btn-danger { background: #b00020; color: white; }
-    .btn-gray { background: #ddd; color: #222; }
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
-    .item {
-      border: 1px solid #e4e4e4;
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 12px;
-      background: #fafafa;
-    }
-    .meta {
-      font-size: 14px;
-      color: #666;
-      margin-bottom: 10px;
-    }
-    .hidden { display: none; }
-    .help {
-      font-size: 13px;
-      color: #666;
-      margin-top: -8px;
-      margin-bottom: 12px;
-      line-height: 1.5;
-    }
-    @media (max-width: 700px) {
-      .row { grid-template-columns: 1fr; }
-    }
-  </style>
+<meta charset="UTF-8">
+<title>甘露後台</title>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBoJ0byHJGwOHCkUmyZkx1jXLrctYYdzSM",
+  authDomain: "ganlu-music.firebaseapp.com",
+  projectId: "ganlu-music",
+  appId: "1:661017374980:web:904c57d0f61fb9b51ba051"
+};
+
+const ADMIN_EMAIL = "trueloveshops@gmail.com";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+window.login = async () => {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const user = await signInWithEmailAndPassword(auth, email, password);
+
+  if (user.user.email !== ADMIN_EMAIL) {
+    alert("不是管理員");
+    return;
+  }
+
+  document.getElementById("panel").style.display = "block";
+};
+
+window.save = async () => {
+  const text = document.getElementById("text").value;
+  const audio = document.getElementById("audio").value;
+  const image = document.getElementById("image").value;
+
+  await addDoc(collection(db, "phrases"), {
+    text: text,
+    audioUrl: audio ? "https://trueloveshops.github.io/ganlu-music-/music/" + audio : "",
+    imageUrl: image ? "https://trueloveshops.github.io/ganlu-music-/images/" + image : "",
+    published: true,
+    order: Date.now()
+  });
+
+  alert("新增成功");
+};
+</script>
 </head>
+
 <body>
-  <div class="wrap">
-    <h1>甘露法語後台管理</h1>
 
-    <div class="card" id="loginCard">
-      <h2>管理員登入</h2>
-      <input id="email" type="email" placeholder="Email" />
-      <input id="password" type="password" placeholder="Password" />
-      <button class="btn-primary" id="loginBtn">登入</button>
-      <p id="loginMsg"></p>
-    </div>
+<h2>登入</h2>
+<input id="email" placeholder="Email"><br>
+<input id="password" placeholder="Password" type="password"><br>
+<button onclick="login()">登入</button>
 
-    <div class="card hidden" id="adminPanel">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-        <h2>新增 / 編輯法語</h2>
-        <button class="btn-gray" id="logoutBtn">登出</button>
-      </div>
+<div id="panel" style="display:none">
+<h2>新增法語</h2>
 
-      <input id="docId" type="hidden" />
+<textarea id="text" placeholder="法語"></textarea><br>
+<input id="audio" placeholder="音檔檔名 001.mp3"><br>
+<input id="image" placeholder="圖片檔名 001.jpg"><br>
 
-      <label>法語內容</label>
-      <textarea id="text" placeholder="輸入法語內容"></textarea>
+<button onclick="save()">儲存</button>
+</div>
 
-      <div class="row">
-        <div>
-          <label>音檔檔名（可空）</label>
-          <input id="audioFile" type="text" placeholder="例如：001.mp3" />
-          <div class="help">只填檔名即可，系統會自動組成完整網址。</div>
-        </div>
-        <div>
-          <label>圖片檔名（可空）</label>
-          <input id="imageFile" type="text" placeholder="例如：001.jpg" />
-          <div class="help">只填檔名即可，系統會自動組成完整網址。</div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label>排序</label>
-          <input id="order" type="number" placeholder="1" />
-        </div>
-        <div>
-          <label>發布狀態</label>
-          <select id="published">
-            <option value="true">發布</option>
-            <option value="false">下架</option>
-          </select>
-        </div>
-      </div>
-
-      <button class="btn-primary" id="saveBtn">儲存</button>
-      <button class="btn-gray" id="resetBtn">清空</button>
-      <p id="saveMsg"></p>
-    </div>
-
-    <div class="card hidden" id="listPanel">
-      <h2>法語列表</h2>
-      <div id="items"></div>
-    </div>
-  </div>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-    import {
-      getAuth,
-      signInWithEmailAndPassword,
-      onAuthStateChanged,
-      signOut
-    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import {
-      getFirestore,
-      collection,
-      addDoc,
-      getDocs,
-      doc,
-      updateDoc,
-      deleteDoc,
-      query,
-      orderBy,
-      serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-
-    const FIREBASE_CONFIG = {
-      apiKey: "AIzaSyBoJ0byHJGwOHCkUmyZkx1jXLrctYYdzSM",
-      authDomain: "ganlu-music.firebaseapp.com",
-      projectId: "ganlu-music",
-      appId: "1:661017374980:web:904c57d0f61fb9b51ba051"
-    };
-
-    const ADMIN_EMAIL = "trueloveshops@gmail.com";
-    const AUDIO_BASE = "https://trueloveshops.github.io/ganlu-music-/music/";
-    const IMAGE_BASE = "https://trueloveshops.github.io/ganlu-music-/images/";
-
-    const app = initializeApp(FIREBASE_CONFIG);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    const loginCard = document.getElementById('loginCard');
-    const adminPanel = document.getElementById('adminPanel');
-    const listPanel = document.getElementById('listPanel');
-
-    const email = document.getElementById('email');
-    const password = document.getElementById('password');
-    const loginBtn = document.getElementById('loginBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const loginMsg = document.getElementById('loginMsg');
-
-    const docId = document.getElementById('docId');
-    const text = document.getElementById('text');
-    const audioFile = document.getElementById('audioFile');
-    const imageFile = document.getElementById('imageFile');
-    const order = document.getElementById('order');
-    const published = document.getElementById('published');
-    const saveBtn = document.getElementById('saveBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const saveMsg = document.getElementById('saveMsg');
-    const items = document.getElementById('items');
-
-    function buildUrl(base, filename) {
-      const value = (filename || '').trim();
-      if (!value) return '';
-      if (/^https?:\/\//i.test(value)) return value;
-      return base + encodeURIComponent(value).replace(/%2F/g, '/');
-    }
-
-    function getTitleFromText(value) {
-      const t = (value || '').trim();
-      return t ? t.slice(0, 20) : '未命名';
-    }
-
-    loginBtn.addEventListener('click', async () => {
-      loginMsg.textContent = '';
-      try {
-        const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
-        if ((cred.user.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-          await signOut(auth);
-          loginMsg.textContent = '這不是管理員帳號。';
-        }
-      } catch (err) {
-        loginMsg.textContent = '登入失敗：' + err.message;
-      }
-    });
-
-    logoutBtn.addEventListener('click', async () => {
-      await signOut(auth);
-    });
-
-    onAuthStateChanged(auth, async (user) => {
-      if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-        loginCard.classList.add('hidden');
-        adminPanel.classList.remove('hidden');
-        listPanel.classList.remove('hidden');
-        await loadItems();
-      } else {
-        loginCard.classList.remove('hidden');
-        adminPanel.classList.add('hidden');
-        listPanel.classList.add('hidden');
-      }
-    });
-
-    function clearForm() {
-      docId.value = '';
-      text.value = '';
-      audioFile.value = '';
-      imageFile.value = '';
-      order.value = '';
-      published.value = 'true';
-      saveMsg.textContent = '';
-    }
-
-    resetBtn.addEventListener('click', clearForm);
-
-    saveBtn.addEventListener('click', async () => {
-      saveMsg.textContent = '';
-
-      const textValue = text.value.trim();
-      if (!textValue) {
-        saveMsg.textContent = '請填寫法語內容。';
-        return;
-      }
-
-      const payload = {
-        title: getTitleFromText(textValue),
-        text: textValue,
-        date: "",
-        url: "",
-        audioFile: audioFile.value.trim(),
-        imageFile: imageFile.value.trim(),
-        audioUrl: buildUrl(AUDIO_BASE, audioFile.value),
-        imageUrl: buildUrl(IMAGE_BASE, imageFile.value),
-        order: Number(order.value || 0),
-        published: published.value === 'true',
-        updatedAt: serverTimestamp()
-      };
-
-      try {
-        if (docId.value) {
-          await updateDoc(doc(db, 'phrases', docId.value), payload);
-          saveMsg.textContent = '更新成功';
-        } else {
-          payload.createdAt = serverTimestamp();
-          await addDoc(collection(db, 'phrases'), payload);
-          saveMsg.textContent = '新增成功';
-        }
-        clearForm();
-        await loadItems();
-      } catch (err) {
-        saveMsg.textContent = '儲存失敗：' + err.message;
-      }
-    });
-
-    async function loadItems() {
-      items.innerHTML = '讀取中...';
-      try {
-        const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
-        const snap = await getDocs(q);
-
-        if (snap.empty) {
-          items.innerHTML = '<p>目前沒有資料</p>';
-          return;
-        }
-
-        items.innerHTML = '';
-        snap.forEach((itemDoc) => {
-          const data = itemDoc.data();
-          const div = document.createElement('div');
-          div.className = 'item';
-          div.innerHTML = `
-            <div class="meta">排序：${data.order ?? ''} ｜ 狀態：${data.published ? '發布' : '下架'}</div>
-            <div style="white-space:pre-wrap;margin-bottom:10px;">${escapeHtml(data.text || '')}</div>
-            ${data.audioFile ? `<div>音檔檔名：${escapeHtml(data.audioFile)}</div>` : ''}
-            ${data.imageFile ? `<div>圖片檔名：${escapeHtml(data.imageFile)}</div>` : ''}
-            ${data.audioUrl ? `<div><a href="${data.audioUrl}" target="_blank">音檔連結</a></div>` : ''}
-            ${data.imageUrl ? `<div><a href="${data.imageUrl}" target="_blank">圖片連結</a></div>` : ''}
-            <div style="margin-top:10px;">
-              <button class="btn-primary" data-edit="${itemDoc.id}">編輯</button>
-              <button class="btn-danger" data-del="${itemDoc.id}">刪除</button>
-            </div>
-          `;
-          items.appendChild(div);
-        });
-
-        document.querySelectorAll('[data-edit]').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const id = btn.dataset.edit;
-            const snap2 = await getDocs(query(collection(db, 'phrases')));
-            snap2.forEach(d => {
-              if (d.id === id) {
-                const data = d.data();
-                docId.value = d.id;
-                text.value = data.text || '';
-                audioFile.value = data.audioFile || '';
-                imageFile.value = data.imageFile || '';
-                order.value = data.order ?? '';
-                published.value = String(!!data.published);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }
-            });
-          });
-        });
-
-        document.querySelectorAll('[data-del]').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const id = btn.dataset.del;
-            if (!confirm('確定要刪除這筆資料嗎？')) return;
-            await deleteDoc(doc(db, 'phrases', id));
-            await loadItems();
-          });
-        });
-      } catch (err) {
-        items.innerHTML = '<p>讀取失敗：' + err.message + '</p>';
-      }
-    }
-
-    function escapeHtml(str) {
-      return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-  </script>
 </body>
 </html>
