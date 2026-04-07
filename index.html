@@ -235,8 +235,8 @@ body {
   transition:width .25s ease, height .25s ease, padding .25s ease, border-radius .25s ease, right .25s ease, bottom .25s ease;
 }
 .player.minimized{
-  left:auto;
-  right:14px;
+  left:14px;
+  right:auto;
   bottom:18px;
   width:44px;
   height:44px;
@@ -256,7 +256,8 @@ body {
 }
 @media (max-width: 640px){
   .player.minimized{
-    right:12px;
+    left:12px;
+    right:auto;
     bottom:16px;
   }
   .volume-hint{
@@ -457,16 +458,24 @@ function setBackground(index) {
   bgIndex = (index + BACKGROUNDS.length) % BACKGROUNDS.length;
   localStorage.setItem('ganlu_bg_index', bgIndex);
   const nextBg = BACKGROUNDS[bgIndex];
-  if (bgFront) {
-    bgB.style.backgroundImage = `url(${nextBg})`;
-    bgB.style.opacity = '1';
-    bgA.style.opacity = '0';
-  } else {
-    bgA.style.backgroundImage = `url(${nextBg})`;
-    bgA.style.opacity = '1';
-    bgB.style.opacity = '0';
-  }
-  bgFront = !bgFront;
+
+  const img = new Image();
+  img.onload = () => {
+    if (bgFront) {
+      bgB.style.backgroundImage = `url(${nextBg})`;
+      bgB.style.opacity = '1';
+      bgA.style.opacity = '0';
+    } else {
+      bgA.style.backgroundImage = `url(${nextBg})`;
+      bgA.style.opacity = '1';
+      bgB.style.opacity = '0';
+    }
+    bgFront = !bgFront;
+  };
+  img.onerror = () => {
+    console.warn('背景載入失敗：', nextBg);
+  };
+  img.src = nextBg;
 }
 setBackground(bgIndex);
 
@@ -910,7 +919,7 @@ window.addEventListener('load', () => {
   }
 
   syncOuterBg();
-  setInterval(syncOuterBg, 1200);
+  setInterval(syncOuterBg, 300);
 });
 
 </script>
