@@ -17,8 +17,13 @@
 html,body {
   margin:0; padding:0; height:100%; overflow:hidden;
   font-family:"Noto Serif TC","Microsoft JhengHei",serif;
-  background:#091013;
   color:var(--fg);
+}
+html {
+  background: radial-gradient(circle at center, rgba(120,160,140,0.28), rgba(0,0,0,0.88));
+}
+body {
+  background: transparent;
 }
 body {
   display:grid; place-items:center;
@@ -54,7 +59,7 @@ body {
   min-width:132px; padding:10px 14px;
   border-radius:18px; background:var(--card2); border:1px solid var(--line);
   backdrop-filter: blur(10px); box-shadow:var(--shadow);
-  font-size:12px; line-height:1.5; letter-spacing:.4px;
+  font-size:12px; line-height:1.5; letter-spacing:.4px; text-decoration:none !important; color:var(--fg) !important;
 }
 .datetime .line1{font-size:13px; font-weight:600}
 .iconbar {display:flex; gap:10px}
@@ -209,16 +214,120 @@ body {
   background:rgba(6,20,24,.74); border:1px solid rgba(255,255,255,.16); backdrop-filter: blur(14px);
   font-size:12px; text-align:center;
 }
+
+/* ===== 手機播放器收合與音量修正 ===== */
+.restore-player-btn{
+  display:none;
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.18);
+  color:var(--fg);
+  cursor:pointer;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  box-shadow:0 8px 20px rgba(0,0,0,.18);
+}
+#miniPlayerBtn svg{ width:18px; height:18px; }
+.player{
+  transition:width .25s ease, height .25s ease, padding .25s ease, border-radius .25s ease, right .25s ease, bottom .25s ease;
+}
+.player.minimized{
+  left:auto;
+  right:14px;
+  bottom:18px;
+  width:44px;
+  height:44px;
+  padding:0;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:visible;
+}
+.player.minimized .player-top,
+.player.minimized .volume-hint{
+  display:none !important;
+}
+.player.minimized .restore-player-btn{
+  display:flex;
+}
+@media (max-width: 640px){
+  .player.minimized{
+    right:12px;
+    bottom:16px;
+  }
+  .volume-hint{
+    right:12px;
+    bottom:118px;
+    font-size:10px;
+  }
+}
+
+
+/* ===== 背景模糊鋪滿 ===== */
+html::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: url("BG/bg1.png") center center / cover no-repeat;
+  filter: blur(20px) brightness(0.9);
+  transform: scale(1.08);
+  z-index: -2;
+}
+
+html::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,0.08);
+  z-index: -1;
+}
+
+html, body {
+  background: transparent !important;
+}
+
+
+/* ===== 外圍背景同步模糊 ===== */
+#outerBlurBg{
+  position: fixed;
+  inset: 0;
+  background: url("BG/bg1.png") center center / cover no-repeat;
+  filter: blur(20px) brightness(0.92);
+  transform: scale(1.08);
+  z-index: -3;
+  transition: background-image .8s ease, opacity .8s ease;
+}
+html::before,
+html::after{
+  content:none !important;
+}
+body::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,0.08);
+  z-index: -2;
+  pointer-events:none;
+}
+html, body {
+  background: transparent !important;
+}
+
 </style>
 </head>
 <body>
+<div id="outerBlurBg"></div>
 <div class="shell" id="app">
   <div id="bgA" class="bg"></div>
   <div id="bgB" class="bg"></div>
   <div class="mist"></div>
 
   <div class="topbar">
-    <div class="datetime" id="datetime"></div>
+    <a class="datetime" id="datetime" href="https://www.cwa.gov.tw/V8/C/W/Town/Town.html?TID=1000502" target="_blank" rel="noopener noreferrer"></a>
     <div class="iconbar">
       <button class="icon-btn" id="bgBtn" title="更換背景" aria-label="更換背景">
         <svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M4 7l4.5 4.5 3-3 6.5 6.5"/><path d="M16 5h.01"/></svg>
@@ -268,7 +377,8 @@ body {
 
   <div class="toast" id="toast"></div>
 
-  <div class="player">
+  <div class="player" id="player">
+    <button id="restorePlayerBtn" class="restore-player-btn" aria-label="展開播放器">♫</button>
     <div class="player-top">
       <div class="cover-col">
         <img class="cover" id="cover" alt="cover">
@@ -292,13 +402,16 @@ body {
           <button class="control-btn" id="nextBtn" aria-label="下一首">
             <svg viewBox="0 0 24 24"><path d="m13 19 9-7-9-7v14Z"/><path d="M2 19 11 12 2 5v14Z"/></svg>
           </button>
-          <button class="control-btn" id="muteBtn" aria-label="靜音">
+          <button class="control-btn" id="muteBtn" aria-label="音量調整">
             <svg id="muteIcon" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M18.5 8.5a5 5 0 0 1 0 7"/><path d="M15.5 11a2 2 0 0 1 0 2"/></svg>
+          </button>
+          <button class="control-btn" id="miniPlayerBtn" aria-label="縮小播放器">
+            <svg viewBox="0 0 24 24"><path d="M6 12h12"/><path d="M12 6v12"/></svg>
           </button>
         </div>
       </div>
     </div>
-    <div id="volumeHint" class="volume-hint">點喇叭後可用滾輪調整音量</div>
+    <div id="volumeHint" class="volume-hint">點喇叭切換音量，長按可靜音</div>
   </div>
 </div>
 
@@ -658,16 +771,28 @@ function toggleRepeat() {
 document.getElementById('playBtn').onclick = togglePlay;
 document.getElementById('nextBtn').onclick = nextTrack;
 document.getElementById('prevBtn').onclick = prevTrack;
-document.getElementById('muteBtn').onclick = toggleMute;
+const muteBtnEl = document.getElementById('muteBtn');
+const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+function cycleVolumeMobile() {
+  const levels = [0, 0.33, 0.66, 1];
+  const current = audio.muted ? 0 : Math.round(audio.volume * 100) / 100;
+  let next = levels.find(v => v > current + 0.01);
+  if (next === undefined) next = 0;
+  applyVolume(next);
+  showVolumeHint();
+}
+muteBtnEl.onclick = isTouchDevice ? cycleVolumeMobile : toggleMute;
 document.getElementById('repeatBtn').onclick = toggleRepeat;
 
-document.getElementById('muteBtn').addEventListener('wheel', (e) => {
-  e.preventDefault();
-  showVolumeHint();
-  const step = e.deltaY < 0 ? 0.05 : -0.05;
-  const base = audio.muted ? (lastVolume || 0.5) : audio.volume;
-  applyVolume(base + step);
-}, { passive:false });
+if (!isTouchDevice) {
+  muteBtnEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    showVolumeHint();
+    const step = e.deltaY < 0 ? 0.05 : -0.05;
+    const base = audio.muted ? (lastVolume || 0.5) : audio.volume;
+    applyVolume(base + step);
+  }, { passive:false });
+}
 
 
 audio.addEventListener('loadedmetadata', () => {
@@ -753,6 +878,41 @@ updateMuteIcon();
 updateVolumeIcon();
 updateRepeatIcon();
 audio.play().then(updatePlayIcon).catch(()=>showToast('首次通常需手動按播放'));
+
+/* ===== 播放器縮成小音樂符號 ===== */
+const playerEl = document.getElementById('player');
+const miniPlayerBtn = document.getElementById('miniPlayerBtn');
+const restorePlayerBtn = document.getElementById('restorePlayerBtn');
+
+function setPlayerMinimized(minimized) {
+  if (!playerEl) return;
+  playerEl.classList.toggle('minimized', minimized);
+}
+
+if (miniPlayerBtn && restorePlayerBtn && playerEl) {
+  miniPlayerBtn.addEventListener('click', () => setPlayerMinimized(true));
+  restorePlayerBtn.addEventListener('click', () => setPlayerMinimized(false));
+}
+
+
+/* ===== 外圍模糊背景跟內部 BG 同步 ===== */
+window.addEventListener('load', () => {
+  const outerBlurBg = document.getElementById('outerBlurBg');
+  const bgA = document.getElementById('bgA');
+  const bgB = document.getElementById('bgB');
+  if (!outerBlurBg || !bgA) return;
+
+  function syncOuterBg() {
+    const currentBg = (bgA.style.backgroundImage && bgA.style.backgroundImage !== 'none')
+      ? bgA.style.backgroundImage
+      : (bgB && bgB.style.backgroundImage ? bgB.style.backgroundImage : '');
+    if (currentBg) outerBlurBg.style.backgroundImage = currentBg;
+  }
+
+  syncOuterBg();
+  setInterval(syncOuterBg, 1200);
+});
+
 </script>
 </body>
 </html>
