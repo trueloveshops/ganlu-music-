@@ -1,115 +1,536 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<title>甘露法語後台</title>
-<style>
-body{font-family:sans-serif;background:#f5f5f5;padding:20px}
-.card{background:#fff;padding:20px;border-radius:12px;margin-bottom:20px}
-input,textarea,select{width:100%;padding:8px;margin:8px 0}
-button{padding:10px;margin-top:10px}
-.item{border:1px solid #ddd;padding:10px;margin-top:10px}
-</style>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBoJ0byHJGwOHCkUmyZkx1jXLrctYYdzSM",
-  authDomain: "ganlu-music.firebaseapp.com",
-  projectId: "ganlu-music",
-  appId: "1:661017374980:web:904c57d0f61fb9b51ba051"
-};
-
-const ADMIN_EMAIL="trueloveshops@gmail.com";
-
-const app=initializeApp(firebaseConfig);
-const auth=getAuth(app);
-const db=getFirestore(app);
-
-window.login=async()=>{
-  const email=document.getElementById("email").value;
-  const password=document.getElementById("password").value;
-  const user=await signInWithEmailAndPassword(auth,email,password);
-
-  if(user.user.email!==ADMIN_EMAIL){
-    alert("不是管理員");
-    return;
-  }
-
-  document.getElementById("panel").style.display="block";
-  load();
-};
-
-window.save=async()=>{
-  const text=document.getElementById("text").value;
-  const date=document.getElementById("date").value;
-  const url=document.getElementById("url").value;
-  const audio=document.getElementById("audio").value;
-  const image=document.getElementById("image").value;
-
-  await addDoc(collection(db,"phrases"),{
-    text,
-    date,
-    url,
-    audioUrl:audio?`https://trueloveshops.github.io/ganlu-music-/music/${audio}`:"",
-    imageUrl:image?`https://trueloveshops.github.io/ganlu-music-/images/${image}`:"",
-    published:true,
-    order:Date.now()
-  });
-
-  alert("新增成功");
-  load();
-};
-
-async function load(){
-  const list=document.getElementById("list");
-  list.innerHTML="";
-  const snap=await getDocs(collection(db,"phrases"));
-
-  snap.forEach(doc=>{
-    const d=doc.data();
-    const div=document.createElement("div");
-    div.className="item";
-    div.innerHTML=`
-    <div>${d.text}</div>
-    <div>${d.date||""}</div>
-    ${d.url?`<a href="${d.url}" target="_blank">來源</a>`:""}
-    `;
-    list.appendChild(div);
-  });
-}
-</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>甘露法語後台管理（含批量匯入）</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 20px; color: #222; }
+    .wrap { max-width: 1080px; margin: auto; }
+    .card { background: #fff; border-radius: 14px; padding: 18px; margin-bottom: 18px; box-shadow: 0 4px 18px rgba(0,0,0,0.06); }
+    h1, h2, h3 { margin-top: 0; }
+    input, textarea, select { width: 100%; padding: 10px; margin: 8px 0 14px; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
+    textarea { min-height: 110px; resize: vertical; }
+    button { border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer; margin-right: 8px; margin-bottom: 8px; }
+    button[disabled] { opacity: .55; cursor: not-allowed; }
+    .btn-primary { background: #2d6a4f; color: white; }
+    .btn-danger { background: #b00020; color: white; }
+    .btn-gray { background: #ddd; color: #222; }
+    .btn-blue { background: #2b6cb0; color: white; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .item { border: 1px solid #e4e4e4; border-radius: 12px; padding: 14px; margin-bottom: 12px; background: #fafafa; }
+    .meta { font-size: 14px; color: #666; margin-bottom: 10px; line-height: 1.6; }
+    .hidden { display: none; }
+    .help { font-size: 13px; color: #666; margin-top: -8px; margin-bottom: 12px; line-height: 1.5; }
+    .small-link { word-break: break-all; font-size: 13px; }
+    .preview-box { max-height: 260px; overflow: auto; border: 1px solid #ddd; border-radius: 10px; padding: 10px; background: #fafafa; font-size: 14px; }
+    .preview-row { padding: 8px 0; border-bottom: 1px solid #e8e8e8; }
+    .preview-row:last-child { border-bottom: none; }
+    .status-ok { color: #2d6a4f; }
+    .status-warn { color: #b45309; }
+    .status-err { color: #b00020; }
+    code { background: #f1f1f1; padding: 2px 6px; border-radius: 6px; }
+    @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
+  </style>
 </head>
-
 <body>
+  <div class="wrap">
+    <h1>甘露法語後台管理</h1>
 
-<div class="card">
-<h2>登入</h2>
-<input id="email" placeholder="Email">
-<input id="password" type="password" placeholder="Password">
-<button onclick="login()">登入</button>
-</div>
+    <div class="card" id="loginCard">
+      <h2>管理員登入</h2>
+      <input id="email" type="email" placeholder="Email" />
+      <input id="password" type="password" placeholder="Password" />
+      <button class="btn-primary" id="loginBtn">登入</button>
+      <p id="loginMsg"></p>
+    </div>
 
-<div id="panel" class="card" style="display:none">
-<h2>新增法語</h2>
+    <div class="card hidden" id="adminPanel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <h2>新增 / 編輯法語</h2>
+        <button class="btn-gray" id="logoutBtn">登出</button>
+      </div>
 
-<textarea id="text" placeholder="法語"></textarea>
+      <input id="docId" type="hidden" />
+      <label>法語內容</label>
+      <textarea id="text" placeholder="輸入法語內容"></textarea>
 
-<input id="date" placeholder="日期 / 來源">
-<input id="url" placeholder="超連結網址">
+      <div class="row">
+        <div>
+          <label>日期 / 來源（可空）</label>
+          <input id="date" type="text" placeholder="例如：DVD745 或 1995.06.06" />
+        </div>
+        <div>
+          <label>超連結網址（可空）</label>
+          <input id="url" type="text" placeholder="例如：https://example.com" />
+        </div>
+      </div>
 
-<input id="audio" placeholder="音檔檔名 001.mp3">
-<input id="image" placeholder="圖片檔名 001.jpg">
+      <div class="row">
+        <div>
+          <label>音檔檔名（可空）</label>
+          <input id="audioFile" type="text" placeholder="例如：0001.mp3" />
+          <div class="help">只填檔名即可，系統會自動組成完整網址。若你已經有完整網址，也可直接貼完整網址。</div>
+        </div>
+        <div>
+          <label>圖片檔名（可空）</label>
+          <input id="imageFile" type="text" placeholder="例如：0001.jpg" />
+          <div class="help">只填檔名即可，系統會自動組成完整網址。若你已經有完整網址，也可直接貼完整網址。</div>
+        </div>
+      </div>
 
-<button onclick="save()">儲存</button>
+      <div class="row">
+        <div>
+          <label>排序</label>
+          <input id="order" type="number" placeholder="1" />
+        </div>
+        <div>
+          <label>發布狀態</label>
+          <select id="published">
+            <option value="true">發布</option>
+            <option value="false">下架</option>
+          </select>
+        </div>
+      </div>
 
-<h2>列表</h2>
-<div id="list"></div>
+      <button class="btn-primary" id="saveBtn">儲存</button>
+      <button class="btn-gray" id="resetBtn">清空</button>
+      <p id="saveMsg"></p>
+    </div>
 
-</div>
+    <div class="card hidden" id="importPanel">
+      <h2>批量匯入 CSV</h2>
+      <div class="help">CSV 欄位順序請用：<br><code>text,date,url,audioFile,imageFile,order,published</code></div>
+      <div class="help">範例：<br><code>願眾生離苦得樂,DVD745,https://example.com,0001.mp3,0001.jpg,1,true</code></div>
 
+      <input id="csvFile" type="file" accept=".csv,text/csv" />
+      <button class="btn-blue" id="previewBtn">預覽 CSV</button>
+      <button class="btn-primary" id="importBtn" disabled>開始匯入</button>
+      <button class="btn-gray" id="downloadTemplateBtn">下載模板</button>
+
+      <p id="importMsg"></p>
+      <div id="previewBox" class="preview-box hidden"></div>
+    </div>
+
+    <div class="card hidden" id="listPanel">
+      <h2>法語列表</h2>
+      <div id="items"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyBoJ0byHJGwOHCkUmyZkx1jXLrctYYdzSM",
+      authDomain: "ganlu-music.firebaseapp.com",
+      projectId: "ganlu-music",
+      appId: "1:661017374980:web:904c57d0f61fb9b51ba051"
+    };
+
+    const ADMIN_EMAIL = "trueloveshops@gmail.com";
+    const AUDIO_BASE = "https://trueloveshops.github.io/ganlu-music-/music/";
+    const IMAGE_BASE = "https://trueloveshops.github.io/ganlu-music-/images/";
+
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const loginCard = document.getElementById('loginCard');
+    const adminPanel = document.getElementById('adminPanel');
+    const importPanel = document.getElementById('importPanel');
+    const listPanel = document.getElementById('listPanel');
+
+    const email = document.getElementById('email');
+    const password = document.getElementById('password');
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const loginMsg = document.getElementById('loginMsg');
+
+    const docId = document.getElementById('docId');
+    const text = document.getElementById('text');
+    const dateEl = document.getElementById('date');
+    const urlEl = document.getElementById('url');
+    const audioFile = document.getElementById('audioFile');
+    const imageFile = document.getElementById('imageFile');
+    const order = document.getElementById('order');
+    const published = document.getElementById('published');
+    const saveBtn = document.getElementById('saveBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const saveMsg = document.getElementById('saveMsg');
+    const items = document.getElementById('items');
+
+    const csvFile = document.getElementById('csvFile');
+    const previewBtn = document.getElementById('previewBtn');
+    const importBtn = document.getElementById('importBtn');
+    const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+    const importMsg = document.getElementById('importMsg');
+    const previewBox = document.getElementById('previewBox');
+
+    let isSaving = false;
+    let parsedRows = [];
+
+    function buildUrl(base, filename) {
+      const value = (filename || '').trim();
+      if (!value) return '';
+      if (/^https?:\/\//i.test(value)) return value;
+      return base + encodeURIComponent(value).replace(/%2F/g, '/');
+    }
+
+    function getTitleFromText(value) {
+      const t = (value || '').trim();
+      return t ? t.slice(0, 20) : '未命名';
+    }
+
+    function hashString(str) {
+      let hash = 5381;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) + hash) + str.charCodeAt(i);
+        hash = hash >>> 0;
+      }
+      return 'p_' + hash.toString(16);
+    }
+
+    function buildDeterministicId(payload) {
+      const base = [payload.text || '', payload.date || '', payload.url || '', payload.audioFile || '', payload.imageFile || '', String(payload.order ?? ''), String(payload.published ?? '')].join('||');
+      return hashString(base);
+    }
+
+    function normalizePublished(value) {
+      const v = String(value || '').trim().toLowerCase();
+      return v === 'true' || v === '1' || v === 'yes' || v === 'y';
+    }
+
+    function payloadFromFields(obj) {
+      const textValue = (obj.text || '').trim();
+      return {
+        title: getTitleFromText(textValue),
+        text: textValue,
+        date: (obj.date || '').trim(),
+        url: (obj.url || '').trim(),
+        audioFile: (obj.audioFile || '').trim(),
+        imageFile: (obj.imageFile || '').trim(),
+        audioUrl: buildUrl(AUDIO_BASE, obj.audioFile || ''),
+        imageUrl: buildUrl(IMAGE_BASE, obj.imageFile || ''),
+        order: Number(obj.order || 0),
+        published: typeof obj.published === 'boolean' ? obj.published : normalizePublished(obj.published),
+        updatedAt: serverTimestamp()
+      };
+    }
+
+    loginBtn.addEventListener('click', async () => {
+      loginMsg.textContent = '';
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
+        if ((cred.user.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+          await signOut(auth);
+          loginMsg.textContent = '這不是管理員帳號。';
+        }
+      } catch (err) {
+        loginMsg.textContent = '登入失敗：' + err.message;
+      }
+    });
+
+    logoutBtn.addEventListener('click', async () => { await signOut(auth); });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        loginCard.classList.add('hidden');
+        adminPanel.classList.remove('hidden');
+        importPanel.classList.remove('hidden');
+        listPanel.classList.remove('hidden');
+        await loadItems();
+      } else {
+        loginCard.classList.remove('hidden');
+        adminPanel.classList.add('hidden');
+        importPanel.classList.add('hidden');
+        listPanel.classList.add('hidden');
+      }
+    });
+
+    function clearForm() {
+      docId.value = '';
+      text.value = '';
+      dateEl.value = '';
+      urlEl.value = '';
+      audioFile.value = '';
+      imageFile.value = '';
+      order.value = '';
+      published.value = 'true';
+      saveMsg.textContent = '';
+      saveBtn.textContent = '儲存';
+      saveBtn.disabled = false;
+      isSaving = false;
+    }
+
+    resetBtn.addEventListener('click', clearForm);
+
+    saveBtn.addEventListener('click', async () => {
+      if (isSaving) return;
+      saveMsg.textContent = '';
+      const textValue = text.value.trim();
+      if (!textValue) {
+        saveMsg.textContent = '請填寫法語內容。';
+        return;
+      }
+
+      const payload = payloadFromFields({
+        text: textValue,
+        date: dateEl.value,
+        url: urlEl.value,
+        audioFile: audioFile.value,
+        imageFile: imageFile.value,
+        order: order.value,
+        published: published.value
+      });
+
+      isSaving = true;
+      saveBtn.disabled = true;
+      saveBtn.textContent = '儲存中...';
+
+      try {
+        if (docId.value) {
+          await updateDoc(doc(db, 'phrases', docId.value), payload);
+          saveMsg.textContent = '更新成功';
+        } else {
+          const stableId = buildDeterministicId(payload);
+          payload.createdAt = serverTimestamp();
+          await setDoc(doc(db, 'phrases', stableId), payload, { merge: true });
+          saveMsg.textContent = '新增成功';
+        }
+        clearForm();
+        await loadItems();
+      } catch (err) {
+        saveMsg.textContent = '儲存失敗：' + err.message;
+        isSaving = false;
+        saveBtn.disabled = false;
+        saveBtn.textContent = '儲存';
+      }
+    });
+
+    function parseCsvLine(line) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const next = line[i + 1];
+        if (char === '"') {
+          if (inQuotes && next === '"') { current += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        } else if (char === ',' && !inQuotes) {
+          result.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current);
+      return result.map(v => v.trim());
+    }
+
+    function parseCsv(text) {
+      const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim() !== '');
+      if (lines.length < 2) return [];
+      const headers = parseCsvLine(lines[0]);
+      return lines.slice(1).map(line => {
+        const values = parseCsvLine(line);
+        const obj = {};
+        headers.forEach((header, index) => { obj[header] = values[index] ?? ''; });
+        return obj;
+      });
+    }
+
+    previewBtn.addEventListener('click', async () => {
+      importMsg.textContent = '';
+      previewBox.innerHTML = '';
+      previewBox.classList.add('hidden');
+      importBtn.disabled = true;
+      parsedRows = [];
+
+      const file = csvFile.files[0];
+      if (!file) {
+        importMsg.innerHTML = '<span class="status-err">請先選擇 CSV 檔。</span>';
+        return;
+      }
+
+      try {
+        const content = await file.text();
+        const rows = parseCsv(content);
+        if (!rows.length) {
+          importMsg.innerHTML = '<span class="status-err">CSV 沒有可匯入資料，或格式不正確。</span>';
+          return;
+        }
+        const required = ['text', 'date', 'url', 'audioFile', 'imageFile', 'order', 'published'];
+        const firstRowKeys = Object.keys(rows[0]);
+        const missing = required.filter(key => !firstRowKeys.includes(key));
+        if (missing.length) {
+          importMsg.innerHTML = '<span class="status-err">缺少欄位：' + missing.join(', ') + '</span>';
+          return;
+        }
+
+        parsedRows = rows.filter(row => String(row.text || '').trim() !== '');
+        if (!parsedRows.length) {
+          importMsg.innerHTML = '<span class="status-err">沒有有效資料列。</span>';
+          return;
+        }
+
+        previewBox.classList.remove('hidden');
+        previewBox.innerHTML = parsedRows.slice(0, 20).map((row, idx) => `
+          <div class="preview-row">
+            <strong>${idx + 1}. ${escapeHtml(row.text || '')}</strong><br>
+            <span>date: ${escapeHtml(row.date || '')}</span><br>
+            <span>audioFile: ${escapeHtml(row.audioFile || '')}</span> ｜ 
+            <span>imageFile: ${escapeHtml(row.imageFile || '')}</span> ｜ 
+            <span>order: ${escapeHtml(row.order || '')}</span> ｜ 
+            <span>published: ${escapeHtml(row.published || '')}</span>
+          </div>
+        `).join('');
+
+        if (parsedRows.length > 20) {
+          previewBox.innerHTML += `<div class="preview-row status-warn">只顯示前 20 筆，實際將匯入 ${parsedRows.length} 筆。</div>`;
+        }
+
+        importMsg.innerHTML = `<span class="status-ok">預覽完成，可匯入 ${parsedRows.length} 筆。</span>`;
+        importBtn.disabled = false;
+      } catch (err) {
+        importMsg.innerHTML = '<span class="status-err">讀取 CSV 失敗：' + escapeHtml(err.message) + '</span>';
+      }
+    });
+
+    importBtn.addEventListener('click', async () => {
+      if (!parsedRows.length) {
+        importMsg.innerHTML = '<span class="status-err">請先預覽 CSV。</span>';
+        return;
+      }
+
+      importBtn.disabled = true;
+      previewBtn.disabled = true;
+      importMsg.innerHTML = '<span class="status-warn">匯入中...</span>';
+
+      try {
+        const chunkSize = 200;
+        for (let i = 0; i < parsedRows.length; i += chunkSize) {
+          const chunk = parsedRows.slice(i, i + chunkSize);
+          const batch = writeBatch(db);
+          chunk.forEach(row => {
+            const payload = payloadFromFields(row);
+            const stableId = buildDeterministicId(payload);
+            const ref = doc(db, 'phrases', stableId);
+            batch.set(ref, { ...payload, createdAt: serverTimestamp() }, { merge: true });
+          });
+          await batch.commit();
+        }
+
+        importMsg.innerHTML = `<span class="status-ok">批量匯入完成，共處理 ${parsedRows.length} 筆。</span>`;
+        parsedRows = [];
+        csvFile.value = '';
+        previewBox.innerHTML = '';
+        previewBox.classList.add('hidden');
+        await loadItems();
+      } catch (err) {
+        importMsg.innerHTML = '<span class="status-err">批量匯入失敗：' + escapeHtml(err.message) + '</span>';
+      } finally {
+        importBtn.disabled = true;
+        previewBtn.disabled = false;
+      }
+    });
+
+    downloadTemplateBtn.addEventListener('click', () => {
+      const content = [
+        'text,date,url,audioFile,imageFile,order,published',
+        '願眾生離苦得樂,DVD745,https://example.com,0001.mp3,0001.jpg,1,true',
+        '心存善念世界更美好,DVD746,https://example.com,0002.mp3,0002.jpg,2,true'
+      ].join('\n');
+
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ganlu_import_template.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    async function loadItems() {
+      items.innerHTML = '讀取中...';
+      try {
+        const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          items.innerHTML = '<p>目前沒有資料</p>';
+          return;
+        }
+
+        items.innerHTML = '';
+        snap.forEach((itemDoc) => {
+          const data = itemDoc.data();
+          const div = document.createElement('div');
+          div.className = 'item';
+          div.innerHTML = `
+            <div class="meta">排序：${data.order ?? ''} ｜ 狀態：${data.published ? '發布' : '下架'}</div>
+            <div style="white-space:pre-wrap;margin-bottom:10px;">${escapeHtml(data.text || '')}</div>
+            ${data.date ? `<div>日期/來源：${escapeHtml(data.date)}</div>` : ''}
+            ${data.url ? `<div class="small-link">超連結：<a href="${escapeAttr(data.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(data.url)}</a></div>` : ''}
+            ${data.audioFile ? `<div>音檔檔名：${escapeHtml(data.audioFile)}</div>` : ''}
+            ${data.imageFile ? `<div>圖片檔名：${escapeHtml(data.imageFile)}</div>` : ''}
+            ${data.audioUrl ? `<div class="small-link"><a href="${escapeAttr(data.audioUrl)}" target="_blank" rel="noopener noreferrer">音檔連結</a></div>` : ''}
+            ${data.imageUrl ? `<div class="small-link"><a href="${escapeAttr(data.imageUrl)}" target="_blank" rel="noopener noreferrer">圖片連結</a></div>` : ''}
+            <div style="margin-top:10px;">
+              <button class="btn-primary" data-edit="${itemDoc.id}">編輯</button>
+              <button class="btn-danger" data-del="${itemDoc.id}">刪除</button>
+            </div>
+          `;
+          items.appendChild(div);
+        });
+
+        document.querySelectorAll('[data-edit]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const id = btn.dataset.edit;
+            const snap2 = await getDocs(query(collection(db, 'phrases')));
+            snap2.forEach(d => {
+              if (d.id === id) {
+                const data = d.data();
+                docId.value = d.id;
+                text.value = data.text || '';
+                dateEl.value = data.date || '';
+                urlEl.value = data.url || '';
+                audioFile.value = data.audioFile || '';
+                imageFile.value = data.imageFile || '';
+                order.value = data.order ?? '';
+                published.value = String(!!data.published);
+                saveMsg.textContent = '';
+                saveBtn.textContent = '儲存';
+                saveBtn.disabled = false;
+                isSaving = false;
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            });
+          });
+        });
+
+        document.querySelectorAll('[data-del]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const id = btn.dataset.del;
+            if (!confirm('確定要刪除這筆資料嗎？')) return;
+            await deleteDoc(doc(db, 'phrases', id));
+            await loadItems();
+          });
+        });
+      } catch (err) {
+        items.innerHTML = '<p>讀取失敗：' + err.message + '</p>';
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function escapeAttr(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#039;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+  </script>
 </body>
 </html>
