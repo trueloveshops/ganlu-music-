@@ -171,6 +171,21 @@
         </div>
       </div>
 
+      <div class="row-3">
+        <div>
+          <label>法語文字顏色</label>
+          <input id="quoteTextColor" type="color" value="#eef7f6" />
+        </div>
+        <div>
+          <label>標題文字顏色</label>
+          <input id="titleTextColor" type="color" value="#eef7f6" />
+        </div>
+        <div>
+          <label>來源文字顏色</label>
+          <input id="sourceTextColor" type="color" value="#f6fcfc" />
+        </div>
+      </div>
+
       <button class="btn-purple" id="saveThemeBtn">儲存外觀設定</button>
       <button class="btn-gray" id="loadThemeBtn">重新讀取設定</button>
       <p id="themeMsg"></p>
@@ -255,6 +270,9 @@
     const quoteFontSize = document.getElementById('quoteFontSize');
     const cardOpacity = document.getElementById('cardOpacity');
     const showDate = document.getElementById('showDate');
+    const quoteTextColor = document.getElementById('quoteTextColor');
+    const titleTextColor = document.getElementById('titleTextColor');
+    const sourceTextColor = document.getElementById('sourceTextColor');
     const saveThemeBtn = document.getElementById('saveThemeBtn');
     const loadThemeBtn = document.getElementById('loadThemeBtn');
     const themeMsg = document.getElementById('themeMsg');
@@ -575,6 +593,9 @@
         quoteFontSize.value = data.quoteFontSize ?? 18;
         cardOpacity.value = data.cardOpacity ?? 0.16;
         showDate.value = String(data.showDate !== false);
+        quoteTextColor.value = data.quoteTextColor || '#eef7f6';
+        titleTextColor.value = data.titleTextColor || '#eef7f6';
+        sourceTextColor.value = data.sourceTextColor || '#f6fcfc';
         themeMsg.innerHTML = '<span class="status-ok">已載入外觀設定。</span>';
       } catch (err) {
         themeMsg.innerHTML = '<span class="status-err">讀取外觀設定失敗：' + escapeHtml(err.message) + '</span>';
@@ -590,6 +611,9 @@
         quoteFontSize: Number(quoteFontSize.value || 18),
         cardOpacity: Number(cardOpacity.value || 0.16),
         showDate: showDate.value === 'true',
+        quoteTextColor: quoteTextColor.value,
+        titleTextColor: titleTextColor.value,
+        sourceTextColor: sourceTextColor.value,
         updatedAt: serverTimestamp()
       };
       try {
