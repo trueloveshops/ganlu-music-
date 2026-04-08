@@ -334,33 +334,108 @@ $('clearAllBtn').addEventListener('click', async ()=>{
 });
 
 function renderItems(keyword=''){
-  const kw=String(keyword||'').trim().toLowerCase();
-  const filtered=!kw?allItems:allItems.filter(d=>[d.text,d.date,d.url,d.audioFile,d.imageFile,d.audioUrl,d.imageUrl,d.title,d.order,d.published?'發布 true published':'下架 false unpublished'].some(v=>String(v||'').toLowerCase().includes(kw)));
+  const kw = String(keyword || '').trim().toLowerCase();
+  const filtered = !kw ? allItems : allItems.filter(d => {
+    const fields = [
+      d.text, d.date, d.url, d.audioFile, d.imageFile,
+      d.audioUrl, d.imageUrl, d.title, d.order,
+      d.published ? '發布 true published' : '下架 false unpublished'
+    ];
+    return fields.some(v => String(v || '').toLowerCase().includes(kw));
+  });
+
   $('searchStatus').textContent = kw ? `搜尋「${keyword}」：${filtered.length} 筆` : `全部資料：${allItems.length} 筆`;
-  if(!filtered.length){$('items').innerHTML='<p>找不到符合資料</p>'; return;}
-  $('items').innerHTML = filtered.map(d=>`
-    <div class="item">
-      <div class="meta">排序：${d.order ?? ''} ｜ 狀態：${d.published ? '發布' : '下架'}</div>
-      <div style="white-space:pre-wrap;margin-bottom:10px;">${esc(d.text || '')}</div>
-      ${d.date ? `<div>日期/來源：${esc(d.date)}</div>` : ''}
-      ${d.url ? `<div class="help">超連結：<a href="${escapeURI(d.url)}" target="_blank" rel="noopener noreferrer">${esc(d.url)}</a></div>` : ''}
-      ${d.audioFile ? `<div>音檔檔名：${esc(d.audioFile)}</div>` : ''}
-      ${d.imageFile ? `<div>圖片檔名：${esc(d.imageFile)}</div>` : ''}
-      <div style="margin-top:10px;">
-        <button class="btn-primary" data-edit="${d.id}" type="button">編輯</button>
-        <button class="btn-danger" data-del="${d.id}" type="button">刪除</button>
-      </div>
-    </div>`).join('');
-  document.querySelectorAll('[data-edit]').forEach(btn=>btn.addEventListener('click', ()=>{
-    const d=allItems.find(x=>x.id===btn.dataset.edit); if(!d) return;
-    $('docId').value=d.id; $('text').value=d.text||''; $('date').value=d.date||''; $('url').value=d.url||''; $('audioFile').value=d.audioFile||''; $('imageFile').value=d.imageFile||''; $('order').value=d.order??''; $('published').value=String(!!d.published);
-    window.scrollTo({top:0,behavior:'smooth'});
-  }));
-  document.querySelectorAll('[data-del]').forEach(btn=>btn.addEventListener('click', async ()=>{
-    if(!confirm('確定要刪除這筆資料嗎？')) return;
-    await db.collection('phrases').doc(btn.dataset.del).delete();
-    await loadItems();
-  }));
+
+  const box = $('items');
+  box.innerHTML = '';
+
+  if (!filtered.length) {
+    box.innerHTML = '<p>找不到符合資料</p>';
+    return;
+  }
+
+  filtered.forEach(d => {
+    const item = document.createElement('div');
+    item.className = 'item';
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = `排序：${d.order ?? ''} ｜ 狀態：${d.published ? '發布' : '下架'}`;
+    item.appendChild(meta);
+
+    const textDiv = document.createElement('div');
+    textDiv.style.whiteSpace = 'pre-wrap';
+    textDiv.style.marginBottom = '10px';
+    textDiv.textContent = d.text || '';
+    item.appendChild(textDiv);
+
+    if (d.date) {
+      const dateDiv = document.createElement('div');
+      dateDiv.textContent = `日期/來源：${d.date}`;
+      item.appendChild(dateDiv);
+    }
+
+    if (d.url) {
+      const urlDiv = document.createElement('div');
+      urlDiv.className = 'help';
+      const label = document.createTextNode('超連結：');
+      const a = document.createElement('a');
+      a.href = d.url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = d.url;
+      urlDiv.appendChild(label);
+      urlDiv.appendChild(a);
+      item.appendChild(urlDiv);
+    }
+
+    if (d.audioFile) {
+      const audioDiv = document.createElement('div');
+      audioDiv.textContent = `音檔檔名：${d.audioFile}`;
+      item.appendChild(audioDiv);
+    }
+
+    if (d.imageFile) {
+      const imageDiv = document.createElement('div');
+      imageDiv.textContent = `圖片檔名：${d.imageFile}`;
+      item.appendChild(imageDiv);
+    }
+
+    const btnWrap = document.createElement('div');
+    btnWrap.style.marginTop = '10px';
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-primary';
+    editBtn.type = 'button';
+    editBtn.textContent = '編輯';
+    editBtn.addEventListener('click', () => {
+      $('docId').value = d.id || '';
+      $('text').value = d.text || '';
+      $('date').value = d.date || '';
+      $('url').value = d.url || '';
+      $('audioFile').value = d.audioFile || '';
+      $('imageFile').value = d.imageFile || '';
+      $('order').value = d.order ?? '';
+      $('published').value = String(!!d.published);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-danger';
+    delBtn.type = 'button';
+    delBtn.textContent = '刪除';
+    delBtn.addEventListener('click', async () => {
+      if (!confirm('確定要刪除這筆資料嗎？')) return;
+      await db.collection('phrases').doc(d.id).delete();
+      await loadItems();
+    });
+
+    btnWrap.appendChild(editBtn);
+    btnWrap.appendChild(delBtn);
+    item.appendChild(btnWrap);
+
+    box.appendChild(item);
+  });
 }
 async function loadItems(){
   $('items').innerHTML='讀取中...';
