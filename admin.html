@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>甘露法語後台管理（升級版）</title>
+  <title>甘露法語後台管理（最終穩定版）</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 20px; color: #222; }
     .wrap { max-width: 1120px; margin: auto; }
@@ -48,14 +48,14 @@
       <h2>管理員登入</h2>
       <input id="email" type="email" placeholder="Email" />
       <input id="password" type="password" placeholder="Password" />
-      <button class="btn-primary" id="loginBtn">登入</button>
+      <button class="btn-primary" id="loginBtn" type="button">登入</button>
       <p id="loginMsg"></p>
     </div>
 
     <div class="card hidden" id="adminPanel">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
         <h2>新增 / 編輯法語</h2>
-        <button class="btn-gray" id="logoutBtn">登出</button>
+        <button class="btn-gray" id="logoutBtn" type="button">登出</button>
       </div>
 
       <input id="docId" type="hidden" />
@@ -100,8 +100,8 @@
         </div>
       </div>
 
-      <button class="btn-primary" id="saveBtn">儲存</button>
-      <button class="btn-gray" id="resetBtn">清空</button>
+      <button class="btn-primary" id="saveBtn" type="button">儲存</button>
+      <button class="btn-gray" id="resetBtn" type="button">清空</button>
       <p id="saveMsg"></p>
     </div>
 
@@ -111,9 +111,9 @@
       <div class="help">範例：<br><code>願眾生離苦得樂,DVD745,https://example.com,0001.mp3,0001.jpg,1,true</code></div>
 
       <input id="csvFile" type="file" accept=".csv,text/csv" />
-      <button class="btn-blue" id="previewBtn">預覽 CSV</button>
-      <button class="btn-primary" id="importBtn" disabled>開始匯入</button>
-      <button class="btn-gray" id="downloadTemplateBtn">下載模板</button>
+      <button class="btn-blue" id="previewBtn" type="button">預覽 CSV</button>
+      <button class="btn-primary" id="importBtn" type="button" disabled>開始匯入</button>
+      <button class="btn-gray" id="downloadTemplateBtn" type="button">下載模板</button>
 
       <p id="importMsg"></p>
       <div id="previewBox" class="preview-box hidden"></div>
@@ -121,7 +121,7 @@
 
     <div class="card hidden" id="themePanel">
       <h2>外觀主題控制</h2>
-      <div class="section-note">這些設定會存進 Firebase。要讓前台畫面真的套用，需要前台去讀這份設定。後台這邊先幫你做好管理入口。</div>
+      <div class="section-note">這些設定會存進 Firebase。前台若有接上預覽頁或外觀設定讀取，就會套用。</div>
 
       <div class="row-3">
         <div>
@@ -183,19 +183,19 @@
         </div>
       </div>
 
-      <button class="btn-purple" id="saveThemeBtn">儲存外觀設定</button>
-      <button class="btn-gray" id="loadThemeBtn">重新讀取設定</button>
+      <button class="btn-purple" id="saveThemeBtn" type="button">儲存外觀設定</button>
+      <button class="btn-gray" id="loadThemeBtn" type="button">重新讀取設定</button>
       <p id="themeMsg"></p>
     </div>
 
     <div class="card hidden" id="exportPanel">
       <h2>資料匯出</h2>
       <div class="toolbar">
-        <button class="btn-primary" id="exportJsonBtn">匯出 JSON</button>
-        <button class="btn-blue" id="exportCsvBtn">匯出 CSV</button>
-        <button class="btn-gray" id="exportPublishedJsonBtn">匯出已發布 JSON</button>
+        <button class="btn-primary" id="exportJsonBtn" type="button">匯出 JSON</button>
+        <button class="btn-blue" id="exportCsvBtn" type="button">匯出 CSV</button>
+        <button class="btn-gray" id="exportPublishedJsonBtn" type="button">匯出已發布 JSON</button>
       </div>
-      <div class="section-note">平常前台仍使用 Firebase 即時更新。匯出檔案可作為備份，或之後有空再手動上傳到 GitHub。</div>
+      <div class="section-note">前台仍使用 Firebase 即時更新。匯出檔案可作為備份，或之後有空再手動上傳到 GitHub。</div>
       <p id="exportMsg"></p>
     </div>
 
@@ -203,9 +203,10 @@
       <h2>法語列表</h2>
       <div class="toolbar" style="margin-bottom:14px;">
         <input id="searchInput" type="text" placeholder="搜尋法語、日期、網址、音檔、圖片…" />
-        <button class="btn-blue" id="runSearchBtn">搜尋</button>
-        <button class="btn-gray" id="clearSearchBtn">清除搜尋</button>
+        <button class="btn-blue" id="runSearchBtn" type="button">搜尋</button>
+        <button class="btn-gray" id="clearSearchBtn" type="button">清除搜尋</button>
       </div>
+      <div id="searchStatus" class="help"></div>
       <div id="items"></div>
     </div>
   </div>
@@ -244,12 +245,12 @@
     const loginMsg = document.getElementById('loginMsg');
 
     const docId = document.getElementById('docId');
-    const text = document.getElementById('text');
+    const textEl = document.getElementById('text');
     const dateEl = document.getElementById('date');
     const urlEl = document.getElementById('url');
     const audioFile = document.getElementById('audioFile');
     const imageFile = document.getElementById('imageFile');
-    const order = document.getElementById('order');
+    const orderEl = document.getElementById('order');
     const published = document.getElementById('published');
     const saveBtn = document.getElementById('saveBtn');
     const resetBtn = document.getElementById('resetBtn');
@@ -282,9 +283,11 @@
     const searchInput = document.getElementById('searchInput');
     const runSearchBtn = document.getElementById('runSearchBtn');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const searchStatus = document.getElementById('searchStatus');
     const items = document.getElementById('items');
 
     let isSaving = false;
+    let isLoggingIn = false;
     let parsedRows = [];
     let allItems = [];
 
@@ -336,17 +339,36 @@
       };
     }
 
-    loginBtn.addEventListener('click', async () => {
-      loginMsg.textContent = '';
+    async function loginNow() {
+      if (isLoggingIn) return;
+      isLoggingIn = true;
+      loginMsg.textContent = '登入中…';
+      loginBtn.disabled = true;
       try {
         const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
         if ((cred.user.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
           await signOut(auth);
           loginMsg.textContent = '這不是管理員帳號。';
+        } else {
+          loginMsg.textContent = '';
         }
       } catch (err) {
         loginMsg.textContent = '登入失敗：' + err.message;
+      } finally {
+        isLoggingIn = false;
+        loginBtn.disabled = false;
       }
+    }
+
+    loginBtn.addEventListener('click', loginNow);
+
+    [email, password].forEach(el => {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          loginNow();
+        }
+      });
     });
 
     logoutBtn.addEventListener('click', async () => { await signOut(auth); });
@@ -373,12 +395,12 @@
 
     function clearForm() {
       docId.value = '';
-      text.value = '';
+      textEl.value = '';
       dateEl.value = '';
       urlEl.value = '';
       audioFile.value = '';
       imageFile.value = '';
-      order.value = '';
+      orderEl.value = '';
       published.value = 'true';
       saveMsg.textContent = '';
       saveBtn.textContent = '儲存';
@@ -391,7 +413,7 @@
     saveBtn.addEventListener('click', async () => {
       if (isSaving) return;
       saveMsg.textContent = '';
-      const textValue = text.value.trim();
+      const textValue = textEl.value.trim();
       if (!textValue) {
         saveMsg.textContent = '請填寫法語內容。';
         return;
@@ -403,7 +425,7 @@
         url: urlEl.value,
         audioFile: audioFile.value,
         imageFile: imageFile.value,
-        order: order.value,
+        order: orderEl.value,
         published: published.value
       });
 
@@ -593,8 +615,6 @@
         quoteTextColor.value = data.quoteTextColor || '#eef7f6';
         titleTextColor.value = data.titleTextColor || '#eef7f6';
         sourceTextColor.value = data.sourceTextColor || '#f6fcfc';
-        titleTextColor.value = data.titleTextColor || '#eef7f6';
-        sourceTextColor.value = data.sourceTextColor || '#f6fcfc';
         themeMsg.innerHTML = '<span class="status-ok">已載入外觀設定。</span>';
       } catch (err) {
         themeMsg.innerHTML = '<span class="status-err">讀取外觀設定失敗：' + escapeHtml(err.message) + '</span>';
@@ -689,10 +709,6 @@
     exportCsvBtn.addEventListener('click', async () => { await exportData('csv', false); });
     exportPublishedJsonBtn.addEventListener('click', async () => { await exportData('json', true); });
 
-    function normalizeSearchValue(value) {
-      return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
-    }
-
     function runSearch() {
       renderItems(searchInput.value.trim());
     }
@@ -706,9 +722,7 @@
         runSearch();
       }
     });
-
     runSearchBtn.addEventListener('click', runSearch);
-
     clearSearchBtn.addEventListener('click', () => {
       searchInput.value = '';
       renderItems('');
@@ -730,10 +744,9 @@
     }
 
     function renderItems(keyword = '') {
-      const kw = normalizeSearchValue(keyword);
-      const kwNoSpace = kw.replace(/\s+/g, '');
+      const kw = String(keyword || '').trim().toLowerCase();
       const filtered = !kw ? allItems : allItems.filter(data => {
-        const hay = [
+        const fields = [
           data.text,
           data.date,
           data.url,
@@ -744,11 +757,11 @@
           data.title,
           data.order,
           data.published ? '發布 true published' : '下架 false unpublished'
-        ].map(v => normalizeSearchValue(v)).join(' | ');
-
-        const hayNoSpace = hay.replace(/\s+/g, '');
-        return hay.includes(kw) || hayNoSpace.includes(kwNoSpace);
+        ];
+        return fields.some(v => String(v || '').toLowerCase().includes(kw));
       });
+
+      searchStatus.textContent = kw ? `搜尋「${keyword}」：${filtered.length} 筆` : `全部資料：${allItems.length} 筆`;
 
       if (!filtered.length) {
         items.innerHTML = '<p>找不到符合資料</p>';
@@ -769,8 +782,8 @@
           ${data.audioUrl ? `<div class="small-link"><a href="${escapeAttr(data.audioUrl)}" target="_blank" rel="noopener noreferrer">音檔連結</a></div>` : ''}
           ${data.imageUrl ? `<div class="small-link"><a href="${escapeAttr(data.imageUrl)}" target="_blank" rel="noopener noreferrer">圖片連結</a></div>` : ''}
           <div style="margin-top:10px;">
-            <button class="btn-primary" data-edit="${data.id}">編輯</button>
-            <button class="btn-danger" data-del="${data.id}">刪除</button>
+            <button class="btn-primary" data-edit="${data.id}" type="button">編輯</button>
+            <button class="btn-danger" data-del="${data.id}" type="button">刪除</button>
           </div>
         `;
         items.appendChild(div);
@@ -782,12 +795,12 @@
           const data = allItems.find(x => x.id === id);
           if (!data) return;
           docId.value = data.id;
-          text.value = data.text || '';
+          textEl.value = data.text || '';
           dateEl.value = data.date || '';
           urlEl.value = data.url || '';
           audioFile.value = data.audioFile || '';
           imageFile.value = data.imageFile || '';
-          order.value = data.order ?? '';
+          orderEl.value = data.order ?? '';
           published.value = String(!!data.published);
           saveMsg.textContent = '';
           saveBtn.textContent = '儲存';
