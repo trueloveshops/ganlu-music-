@@ -35,6 +35,8 @@
     .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .toolbar input { margin: 0; }
     .section-note { font-size: 13px; color:#555; line-height:1.6; margin-top:6px; }
+    label.inline { display:flex; align-items:center; gap:8px; width:auto; margin:0; }
+    label.inline input { width:auto; margin:0; }
     @media (max-width: 860px) {
       .row, .row-3 { grid-template-columns: 1fr; }
     }
@@ -111,9 +113,12 @@
       <div class="help">範例：<br><code>願眾生離苦得樂,DVD745,https://example.com,0001.mp3,0001.jpg,1,true</code></div>
 
       <input id="csvFile" type="file" accept=".csv,text/csv" />
-      <button class="btn-blue" id="previewBtn" type="button">預覽 CSV</button>
-      <button class="btn-primary" id="importBtn" type="button" disabled>開始匯入</button>
-      <button class="btn-gray" id="downloadTemplateBtn" type="button">下載模板</button>
+      <div class="toolbar">
+        <button class="btn-blue" id="previewBtn" type="button">預覽 CSV</button>
+        <button class="btn-primary" id="importBtn" type="button" disabled>開始匯入</button>
+        <button class="btn-gray" id="downloadTemplateBtn" type="button">下載模板</button>
+        <label class="inline"><input id="clearBeforeImport" type="checkbox" /> 匯入前先清空舊資料</label>
+      </div>
 
       <p id="importMsg"></p>
       <div id="previewBox" class="preview-box hidden"></div>
@@ -194,6 +199,7 @@
         <button class="btn-primary" id="exportJsonBtn" type="button">匯出 JSON</button>
         <button class="btn-blue" id="exportCsvBtn" type="button">匯出 CSV</button>
         <button class="btn-gray" id="exportPublishedJsonBtn" type="button">匯出已發布 JSON</button>
+        <button class="btn-danger" id="clearAllBtn" type="button">清空全部資料</button>
       </div>
       <div class="section-note">前台仍使用 Firebase 即時更新。匯出檔案可作為備份，或之後有空再手動上傳到 GitHub。</div>
       <p id="exportMsg"></p>
@@ -260,6 +266,7 @@
     const previewBtn = document.getElementById('previewBtn');
     const importBtn = document.getElementById('importBtn');
     const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+    const clearBeforeImport = document.getElementById('clearBeforeImport');
     const importMsg = document.getElementById('importMsg');
     const previewBox = document.getElementById('previewBox');
 
@@ -278,6 +285,7 @@
     const exportJsonBtn = document.getElementById('exportJsonBtn');
     const exportCsvBtn = document.getElementById('exportCsvBtn');
     const exportPublishedJsonBtn = document.getElementById('exportPublishedJsonBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
     const exportMsg = document.getElementById('exportMsg');
 
     const searchInput = document.getElementById('searchInput');
@@ -294,15 +302,13 @@
     function buildUrl(base, filename) {
       const value = (filename || '').trim();
       if (!value) return '';
-      if (/^https?:\/\//i.test(value)) return value;
+      if (/^https?:\\/\\//i.test(value)) return value;
       return base + encodeURIComponent(value).replace(/%2F/g, '/');
     }
-
     function getTitleFromText(value) {
       const t = (value || '').trim();
       return t ? t.slice(0, 20) : '未命名';
     }
-
     function hashString(str) {
       let hash = 5381;
       for (let i = 0; i < str.length; i++) {
@@ -311,17 +317,14 @@
       }
       return 'p_' + hash.toString(16);
     }
-
     function buildDeterministicId(payload) {
       const base = [payload.text || '', payload.date || '', payload.url || '', payload.audioFile || '', payload.imageFile || '', String(payload.order ?? ''), String(payload.published ?? '')].join('||');
       return hashString(base);
     }
-
     function normalizePublished(value) {
       const v = String(value || '').trim().toLowerCase();
       return v === 'true' || v === '1' || v === 'yes' || v === 'y';
     }
-
     function payloadFromFields(obj) {
       const textValue = (obj.text || '').trim();
       return {
@@ -359,9 +362,7 @@
         loginBtn.disabled = false;
       }
     }
-
     loginBtn.addEventListener('click', loginNow);
-
     [email, password].forEach(el => {
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -370,7 +371,6 @@
         }
       });
     });
-
     logoutBtn.addEventListener('click', async () => { await signOut(auth); });
 
     onAuthStateChanged(auth, async (user) => {
@@ -407,7 +407,6 @@
       saveBtn.disabled = false;
       isSaving = false;
     }
-
     resetBtn.addEventListener('click', clearForm);
 
     saveBtn.addEventListener('click', async () => {
@@ -418,7 +417,6 @@
         saveMsg.textContent = '請填寫法語內容。';
         return;
       }
-
       const payload = payloadFromFields({
         text: textValue,
         date: dateEl.value,
@@ -432,7 +430,6 @@
       isSaving = true;
       saveBtn.disabled = true;
       saveBtn.textContent = '儲存中...';
-
       try {
         if (docId.value) {
           await updateDoc(doc(db, 'phrases', docId.value), payload);
@@ -473,7 +470,6 @@
       result.push(current);
       return result.map(v => v.trim());
     }
-
     function parseCsv(text) {
       const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim() !== '');
       if (lines.length < 2) return [];
@@ -486,19 +482,38 @@
       });
     }
 
+    async function clearAllPhrases() {
+      const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
+      const snap = await getDocs(q);
+      if (snap.empty) return 0;
+      let count = 0;
+      let batch = writeBatch(db);
+      let n = 0;
+      for (const d of snap.docs) {
+        batch.delete(doc(db, 'phrases', d.id));
+        n++;
+        count++;
+        if (n === 200) {
+          await batch.commit();
+          batch = writeBatch(db);
+          n = 0;
+        }
+      }
+      if (n > 0) await batch.commit();
+      return count;
+    }
+
     previewBtn.addEventListener('click', async () => {
       importMsg.textContent = '';
       previewBox.innerHTML = '';
       previewBox.classList.add('hidden');
       importBtn.disabled = true;
       parsedRows = [];
-
       const file = csvFile.files[0];
       if (!file) {
         importMsg.innerHTML = '<span class="status-err">請先選擇 CSV 檔。</span>';
         return;
       }
-
       try {
         const content = await file.text();
         const rows = parseCsv(content);
@@ -513,13 +528,11 @@
           importMsg.innerHTML = '<span class="status-err">缺少欄位：' + missing.join(', ') + '</span>';
           return;
         }
-
         parsedRows = rows.filter(row => String(row.text || '').trim() !== '');
         if (!parsedRows.length) {
           importMsg.innerHTML = '<span class="status-err">沒有有效資料列。</span>';
           return;
         }
-
         previewBox.classList.remove('hidden');
         previewBox.innerHTML = parsedRows.slice(0, 20).map((row, idx) => `
           <div class="preview-row">
@@ -531,11 +544,9 @@
             <span>published: ${escapeHtml(row.published || '')}</span>
           </div>
         `).join('');
-
         if (parsedRows.length > 20) {
           previewBox.innerHTML += `<div class="preview-row status-warn">只顯示前 20 筆，實際將匯入 ${parsedRows.length} 筆。</div>`;
         }
-
         importMsg.innerHTML = `<span class="status-ok">預覽完成，可匯入 ${parsedRows.length} 筆。</span>`;
         importBtn.disabled = false;
       } catch (err) {
@@ -548,12 +559,14 @@
         importMsg.innerHTML = '<span class="status-err">請先預覽 CSV。</span>';
         return;
       }
-
       importBtn.disabled = true;
       previewBtn.disabled = true;
       importMsg.innerHTML = '<span class="status-warn">匯入中...</span>';
-
       try {
+        let cleared = 0;
+        if (clearBeforeImport.checked) {
+          cleared = await clearAllPhrases();
+        }
         const chunkSize = 200;
         for (let i = 0; i < parsedRows.length; i += chunkSize) {
           const chunk = parsedRows.slice(i, i + chunkSize);
@@ -566,17 +579,17 @@
           });
           await batch.commit();
         }
-
-        importMsg.innerHTML = `<span class="status-ok">批量匯入完成，共處理 ${parsedRows.length} 筆。</span>`;
+        importMsg.innerHTML = `<span class="status-ok">批量匯入完成，共處理 ${parsedRows.length} 筆。${clearBeforeImport.checked ? `已先清空 ${cleared} 筆舊資料。`: ''}</span>`;
         parsedRows = [];
         csvFile.value = '';
         previewBox.innerHTML = '';
         previewBox.classList.add('hidden');
+        importBtn.disabled = true;
+        previewBtn.disabled = false;
         await loadItems();
       } catch (err) {
         importMsg.innerHTML = '<span class="status-err">批量匯入失敗：' + escapeHtml(err.message) + '</span>';
-      } finally {
-        importBtn.disabled = true;
+        importBtn.disabled = false;
         previewBtn.disabled = false;
       }
     });
@@ -587,7 +600,6 @@
         '願眾生離苦得樂,DVD745,https://example.com,0001.mp3,0001.jpg,1,true',
         '心存善念世界更美好,DVD746,https://example.com,0002.mp3,0002.jpg,2,true'
       ].join('\n');
-
       const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -620,7 +632,6 @@
         themeMsg.innerHTML = '<span class="status-err">讀取外觀設定失敗：' + escapeHtml(err.message) + '</span>';
       }
     }
-
     saveThemeBtn.addEventListener('click', async () => {
       themeMsg.textContent = '';
       const payload = {
@@ -641,10 +652,7 @@
         themeMsg.innerHTML = '<span class="status-err">儲存外觀設定失敗：' + escapeHtml(err.message) + '</span>';
       }
     });
-
-    loadThemeBtn.addEventListener('click', async () => {
-      await loadThemeSettings();
-    });
+    loadThemeBtn.addEventListener('click', async () => { await loadThemeSettings(); });
 
     function sanitizeExportRecord(item) {
       return {
@@ -657,7 +665,6 @@
         published: !!item.published
       };
     }
-
     async function exportData(format, onlyPublished = false) {
       exportMsg.textContent = '';
       try {
@@ -666,12 +673,10 @@
         let rows = [];
         snap.forEach(d => rows.push(sanitizeExportRecord(d.data())));
         if (onlyPublished) rows = rows.filter(r => r.published);
-
         if (!rows.length) {
           exportMsg.innerHTML = '<span class="status-warn">目前沒有可匯出的資料。</span>';
           return;
         }
-
         if (format === 'json') {
           const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json;charset=utf-8;' });
           const url = URL.createObjectURL(blob);
@@ -683,7 +688,6 @@
           exportMsg.innerHTML = `<span class="status-ok">已匯出 ${rows.length} 筆 JSON。</span>`;
           return;
         }
-
         if (format === 'csv') {
           const header = ['text','date','url','audioFile','imageFile','order','published'];
           const csvLines = [header.join(',')];
@@ -704,15 +708,24 @@
         exportMsg.innerHTML = '<span class="status-err">匯出失敗：' + escapeHtml(err.message) + '</span>';
       }
     }
-
     exportJsonBtn.addEventListener('click', async () => { await exportData('json', false); });
     exportCsvBtn.addEventListener('click', async () => { await exportData('csv', false); });
     exportPublishedJsonBtn.addEventListener('click', async () => { await exportData('json', true); });
+    clearAllBtn.addEventListener('click', async () => {
+      if (!confirm('確定要清空全部法語資料嗎？這個動作無法復原。')) return;
+      exportMsg.innerHTML = '<span class="status-warn">清空中...</span>';
+      try {
+        const n = await clearAllPhrases();
+        exportMsg.innerHTML = `<span class="status-ok">已清空 ${n} 筆資料。</span>`;
+        await loadItems();
+      } catch (err) {
+        exportMsg.innerHTML = '<span class="status-err">清空失敗：' + escapeHtml(err.message) + '</span>';
+      }
+    });
 
     function runSearch() {
       renderItems(searchInput.value.trim());
     }
-
     searchInput.addEventListener('input', runSearch);
     searchInput.addEventListener('change', runSearch);
     searchInput.addEventListener('compositionend', runSearch);
@@ -746,23 +759,11 @@
     function renderItems(keyword = '') {
       const kw = String(keyword || '').trim().toLowerCase();
       const filtered = !kw ? allItems : allItems.filter(data => {
-        const fields = [
-          data.text,
-          data.date,
-          data.url,
-          data.audioFile,
-          data.imageFile,
-          data.audioUrl,
-          data.imageUrl,
-          data.title,
-          data.order,
-          data.published ? '發布 true published' : '下架 false unpublished'
-        ];
+        const fields = [data.text, data.date, data.url, data.audioFile, data.imageFile, data.audioUrl, data.imageUrl, data.title, data.order, data.published ? '發布 true published' : '下架 false unpublished'];
         return fields.some(v => String(v || '').toLowerCase().includes(kw));
       });
 
       searchStatus.textContent = kw ? `搜尋「${keyword}」：${filtered.length} 筆` : `全部資料：${allItems.length} 筆`;
-
       if (!filtered.length) {
         items.innerHTML = '<p>找不到符合資料</p>';
         return;
@@ -826,11 +827,9 @@
       }
       return str;
     }
-
     function escapeHtml(str) {
       return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
-
     function escapeAttr(str) {
       return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#039;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
