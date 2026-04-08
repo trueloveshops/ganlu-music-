@@ -7,6 +7,9 @@
 <style>
 :root {
   --fg:#eef7f6;
+  --quote-color:#eef7f6;
+  --title-color:#eef7f6;
+  --source-color:#f6fcfc;
   --muted:rgba(240,248,248,.82);
   --card:rgba(255,255,255,.16);
   --card2:rgba(255,255,255,.12);
@@ -79,6 +82,7 @@ body {
   width:64px; height:24px; margin:0 auto 8px; opacity:.96;
 }
 .title {
+  color:var(--title-color);
   font-size:19px; letter-spacing:3px; font-weight:700;
   text-shadow:0 2px 12px rgba(0,0,0,.18);
 }
@@ -133,6 +137,7 @@ body {
 }
 .decor-lotus { width:16px; height:16px; opacity:.95; }
 .quote-text {
+  color:var(--quote-color);
   flex:1; min-height:0; overflow:auto; scrollbar-width:none;
   text-align:center; white-space:pre-wrap;
   font-size:clamp(16px, 3.15vw, 18px); line-height:1.9;
@@ -141,6 +146,7 @@ body {
 }
 .quote-text::-webkit-scrollbar{display:none}
 .source {
+  color:var(--source-color);
   margin-top:16px; text-align:center; display:block;
   font-size:12px; color:rgba(246,252,252,.92); text-decoration:none;
   line-height:1.5;
@@ -521,6 +527,9 @@ const FIREBASE_PREVIEW_CONFIG = {
 
 const PREVIEW_BASE_PATH = "/ganlu-music-/";
 const bgPath = (name) => `${PREVIEW_BASE_PATH}BG/${name}`;
+bgA.style.backgroundImage = `url(${bgPath('bg1.png')})`;
+bgA.style.opacity = '1';
+bgB.style.opacity = '0';
 
 function initPreviewFirebase() {
   try {
@@ -536,17 +545,30 @@ function initPreviewFirebase() {
 function applyAppearanceSettings(settings) {
   try {
     const root = document.documentElement;
-    if (settings.quoteTextColor) root.style.setProperty('--fg', settings.quoteTextColor);
+
+    if (settings.quoteTextColor) {
+      root.style.setProperty('--quote-color', settings.quoteTextColor);
+      if (quoteText) quoteText.style.color = settings.quoteTextColor;
+    }
+
+    if (settings.titleTextColor) {
+      root.style.setProperty('--title-color', settings.titleTextColor);
+      const titleEl = document.querySelector('.title');
+      if (titleEl) titleEl.style.color = settings.titleTextColor;
+    }
+
+    if (settings.sourceTextColor) {
+      root.style.setProperty('--source-color', settings.sourceTextColor);
+      if (sourceLink) sourceLink.style.color = settings.sourceTextColor;
+    }
+
     if (settings.cardOpacity !== undefined && settings.cardOpacity !== null) {
       const op = Number(settings.cardOpacity);
       if (!Number.isNaN(op)) {
         root.style.setProperty('--card', `rgba(255,255,255,${op})`);
       }
     }
-  } catch (e) {
-    console.warn('套用色彩設定失敗', e);
-  }
-  try {
+
     const themeMap = { default: -1, zen: 0, romance: 1, energy: 2 };
     if (typeof themeMap[settings.themeName] !== 'undefined') {
       localStorage.setItem('ganlu_theme_index', String(themeMap[settings.themeName]));
@@ -564,16 +586,8 @@ function applyAppearanceSettings(settings) {
       if (qCard) qCard.style.background = `rgba(255,255,255,${opacity})`;
       if (player) player.style.background = `rgba(255,255,255,${Math.max(0.08, opacity)})`;
     }
-
-    if (sourceLink) {
-      sourceLink.style.display = settings.showDate === false ? 'none' : 'block';
-    }
   } catch (e) {
     console.warn('套用外觀設定失敗：', e);
-  }
-  const sourceLinkEl = document.getElementById('sourceLink');
-  if (sourceLinkEl) {
-    sourceLinkEl.style.display = settings.showDate === false ? 'none' : '';
   }
 }
 
@@ -639,7 +653,6 @@ function setBackground(index) {
   };
   img.src = nextBg;
 }
-setBackground(bgIndex);
 
 // 外部 BG 圖包自動接管：如果同層 BG/ 有 bg1.png ~ bg21.png，就優先使用它們；否則保留原本內建背景。
 const EXTERNAL_BG_LIST = Array.from({ length: 30 }, (_, i) => bgPath(`bg${i + 1}.png`));
