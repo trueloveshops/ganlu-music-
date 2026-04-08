@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>後台</title></head>
+<body>
+<h2>後台管理</h2>
+<input id="email"><input id="password" type="password">
+<button onclick="login()">登入</button>
+<div id="panel" style="display:none;">
+<input id="text" placeholder="法語">
+<button onclick="save()">存</button>
+<div id="list"></div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig={apiKey:"AIzaSyBoJ0byHJGwOHCkUmyZkx1jXLrctYYdzSM",authDomain:"ganlu-music.firebaseapp.com",projectId:"ganlu-music"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.firestore();
+function login(){panel.style.display='block';load();}
+function save(){db.collection("phrases").add({text:text.value}).then(load);}
+function load(){db.collection("phrases").get().then(s=>{list.innerHTML='';s.forEach(d=>list.innerHTML+=d.data().text+"<br>");});}
+</script>
+</body></html>
