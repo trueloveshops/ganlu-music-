@@ -163,11 +163,8 @@
           <input id="cardOpacity" type="number" min="0.05" max="1" step="0.01" placeholder="0.16" />
         </div>
         <div>
-          <label>日期顯示</label>
-          <select id="showDate">
-            <option value="true">顯示</option>
-            <option value="false">隱藏</option>
-          </select>
+          <label>預覽提示</label>
+          <input type="text" value="日期目前固定顯示" readonly />
         </div>
       </div>
 
@@ -206,6 +203,7 @@
       <h2>法語列表</h2>
       <div class="toolbar" style="margin-bottom:14px;">
         <input id="searchInput" type="text" placeholder="搜尋法語、日期、網址、音檔、圖片…" />
+        <button class="btn-blue" id="runSearchBtn">搜尋</button>
         <button class="btn-gray" id="clearSearchBtn">清除搜尋</button>
       </div>
       <div id="items"></div>
@@ -269,8 +267,9 @@
     const titleFontFamily = document.getElementById('titleFontFamily');
     const quoteFontSize = document.getElementById('quoteFontSize');
     const cardOpacity = document.getElementById('cardOpacity');
-    const showDate = document.getElementById('showDate');
     const quoteTextColor = document.getElementById('quoteTextColor');
+    const titleTextColor = document.getElementById('titleTextColor');
+    const sourceTextColor = document.getElementById('sourceTextColor');
     const titleTextColor = document.getElementById('titleTextColor');
     const sourceTextColor = document.getElementById('sourceTextColor');
     const saveThemeBtn = document.getElementById('saveThemeBtn');
@@ -283,6 +282,7 @@
     const exportMsg = document.getElementById('exportMsg');
 
     const searchInput = document.getElementById('searchInput');
+    const runSearchBtn = document.getElementById('runSearchBtn');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
     const items = document.getElementById('items');
 
@@ -592,8 +592,9 @@
         titleFontFamily.value = data.titleFontFamily || 'Noto Serif TC';
         quoteFontSize.value = data.quoteFontSize ?? 18;
         cardOpacity.value = data.cardOpacity ?? 0.16;
-        showDate.value = String(data.showDate !== false);
         quoteTextColor.value = data.quoteTextColor || '#eef7f6';
+        titleTextColor.value = data.titleTextColor || '#eef7f6';
+        sourceTextColor.value = data.sourceTextColor || '#f6fcfc';
         titleTextColor.value = data.titleTextColor || '#eef7f6';
         sourceTextColor.value = data.sourceTextColor || '#f6fcfc';
         themeMsg.innerHTML = '<span class="status-ok">已載入外觀設定。</span>';
@@ -610,7 +611,6 @@
         titleFontFamily: titleFontFamily.value,
         quoteFontSize: Number(quoteFontSize.value || 18),
         cardOpacity: Number(cardOpacity.value || 0.16),
-        showDate: showDate.value === 'true',
         quoteTextColor: quoteTextColor.value,
         titleTextColor: titleTextColor.value,
         sourceTextColor: sourceTextColor.value,
@@ -691,9 +691,25 @@
     exportCsvBtn.addEventListener('click', async () => { await exportData('csv', false); });
     exportPublishedJsonBtn.addEventListener('click', async () => { await exportData('json', true); });
 
-    searchInput.addEventListener('input', () => {
+    function normalizeSearchValue(value) {
+      return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    function runSearch() {
       renderItems(searchInput.value.trim());
+    }
+
+    searchInput.addEventListener('input', runSearch);
+    searchInput.addEventListener('change', runSearch);
+    searchInput.addEventListener('compositionend', runSearch);
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runSearch();
+      }
     });
+
+    runSearchBtn.addEventListener('click', runSearch);
 
     clearSearchBtn.addEventListener('click', () => {
       searchInput.value = '';
@@ -716,10 +732,24 @@
     }
 
     function renderItems(keyword = '') {
-      const kw = keyword.toLowerCase();
+      const kw = normalizeSearchValue(keyword);
+      const kwNoSpace = kw.replace(/\s+/g, '');
       const filtered = !kw ? allItems : allItems.filter(data => {
-        const hay = [data.text, data.date, data.url, data.audioFile, data.imageFile].map(v => String(v || '').toLowerCase()).join(' | ');
-        return hay.includes(kw);
+        const hay = [
+          data.text,
+          data.date,
+          data.url,
+          data.audioFile,
+          data.imageFile,
+          data.audioUrl,
+          data.imageUrl,
+          data.title,
+          data.order,
+          data.published ? '發布 true published' : '下架 false unpublished'
+        ].map(v => normalizeSearchValue(v)).join(' | ');
+
+        const hayNoSpace = hay.replace(/\s+/g, '');
+        return hay.includes(kw) || hayNoSpace.includes(kwNoSpace);
       });
 
       if (!filtered.length) {
