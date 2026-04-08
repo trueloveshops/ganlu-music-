@@ -290,7 +290,7 @@ html::before {
   content: "";
   position: fixed;
   inset: 0;
-  background: url("BG/bg1.png") center center / cover no-repeat;
+  background: url("/ganlu-music-/BG/bg1.png") center center / cover no-repeat;
   filter: blur(20px) brightness(0.9);
   transform: scale(1.08);
   z-index: -2;
@@ -313,7 +313,7 @@ html, body {
 #outerBlurBg{
   position: fixed;
   inset: 0;
-  background: url("BG/bg1.png") center center / cover no-repeat;
+  background: url("/ganlu-music-/BG/bg1.png") center center / cover no-repeat;
   filter: blur(20px) brightness(0.92);
   transform: scale(1.08);
   z-index: -3;
@@ -519,6 +519,9 @@ const FIREBASE_PREVIEW_CONFIG = {
   appId: "1:661017374980:web:904c57d0f61fb9b51ba051"
 };
 
+const PREVIEW_BASE_PATH = "/ganlu-music-/";
+const bgPath = (name) => `${PREVIEW_BASE_PATH}BG/${name}`;
+
 function initPreviewFirebase() {
   try {
     if (!window.firebase) return null;
@@ -573,6 +576,24 @@ async function loadAppearanceSettings() {
   }
 }
 
+function subscribeAppearanceSettings() {
+  const db = initPreviewFirebase();
+  if (!db) return null;
+  try {
+    return db.collection('site_settings').doc('appearance').onSnapshot((snap) => {
+      if (!snap.exists) return;
+      const settings = snap.data() || {};
+      applyAppearanceSettings(settings);
+      showToast('預覽外觀已更新');
+    }, (e) => {
+      console.warn('即時監聽外觀設定失敗：', e);
+    });
+  } catch (e) {
+    console.warn('建立即時監聽失敗：', e);
+    return null;
+  }
+}
+
 function setBackground(index) {
   bgIndex = (index + BACKGROUNDS.length) % BACKGROUNDS.length;
   localStorage.setItem('ganlu_bg_index', bgIndex);
@@ -605,7 +626,7 @@ function setBackground(index) {
 setBackground(bgIndex);
 
 // 外部 BG 圖包自動接管：如果同層 BG/ 有 bg1.png ~ bg21.png，就優先使用它們；否則保留原本內建背景。
-const EXTERNAL_BG_LIST = Array.from({ length: 30 }, (_, i) => `BG/bg${i + 1}.png`);
+const EXTERNAL_BG_LIST = Array.from({ length: 30 }, (_, i) => bgPath(`bg${i + 1}.png`));
 const THEME_GROUPS = [
   { name: '禪風詩意', start: 0, end: 10, speed: 10000 },
   { name: '浪漫戀愛', start: 10, end: 20, speed: 7000 },
@@ -699,6 +720,7 @@ async function enableExternalBackgrounds() {
 
 window.addEventListener('load', async () => {
   await loadAppearanceSettings();
+subscribeAppearanceSettings();
   await enableExternalBackgrounds();
 });
 
