@@ -535,6 +535,18 @@ function initPreviewFirebase() {
 
 function applyAppearanceSettings(settings) {
   try {
+    const root = document.documentElement;
+    if (settings.quoteTextColor) root.style.setProperty('--fg', settings.quoteTextColor);
+    if (settings.cardOpacity !== undefined && settings.cardOpacity !== null) {
+      const op = Number(settings.cardOpacity);
+      if (!Number.isNaN(op)) {
+        root.style.setProperty('--card', `rgba(255,255,255,${op})`);
+      }
+    }
+  } catch (e) {
+    console.warn('套用色彩設定失敗', e);
+  }
+  try {
     const themeMap = { default: -1, zen: 0, romance: 1, energy: 2 };
     if (typeof themeMap[settings.themeName] !== 'undefined') {
       localStorage.setItem('ganlu_theme_index', String(themeMap[settings.themeName]));
@@ -558,6 +570,10 @@ function applyAppearanceSettings(settings) {
     }
   } catch (e) {
     console.warn('套用外觀設定失敗：', e);
+  }
+  const sourceLinkEl = document.getElementById('sourceLink');
+  if (sourceLinkEl) {
+    sourceLinkEl.style.display = settings.showDate === false ? 'none' : '';
   }
 }
 
@@ -679,7 +695,7 @@ function useBackgroundList(list, resetIndex = true) {
 
 function applyThemeByIndex(index) {
   if (externalBackgrounds.length < 30) {
-    showToast('需放入 bg1 到 bg30');
+    console.warn('背景圖尚未全部可用，稍後再試');
     return;
   }
   currentThemeIndex = (index + THEME_GROUPS.length) % THEME_GROUPS.length;
