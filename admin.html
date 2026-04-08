@@ -212,7 +212,7 @@ function parseCsv(text){
   return lines.slice(1).map(line=>{ const vals=parseCsvLine(line); const obj={}; headers.forEach((h,i)=>obj[h]=vals[i]??''); return obj;});
 }
 async function clearAllPhrases(){
-  const snap = await db.collection('phrases').orderBy('order','asc').get();
+  const snap = await db.collection('phrases').get();
   let count=0, batch=db.batch(), n=0;
   for(const d of snap.docs){
     batch.delete(d.ref); count++; n++;
@@ -308,8 +308,8 @@ $('loadThemeBtn').addEventListener('click', loadThemeSettings);
 function sanitizeExportRecord(item){return {text:item.text||'',date:item.date||'',url:item.url||'',audioFile:item.audioFile||'',imageFile:item.imageFile||'',order:Number(item.order||0),published:!!item.published};}
 async function exportData(format, onlyPublished=false){
   try{
-    const snap = await db.collection('phrases').orderBy('order','asc').get();
-    let rows=[]; snap.forEach(d=>rows.push(sanitizeExportRecord(d.data()))); if(onlyPublished) rows=rows.filter(r=>r.published);
+    const snap = await db.collection('phrases').get();
+    let rows=[]; snap.forEach(d=>rows.push(sanitizeExportRecord(d.data()))); rows.sort((a,b)=>Number(a.order||0)-Number(b.order||0)); if(onlyPublished) rows=rows.filter(r=>r.published);
     if(!rows.length){$('exportMsg').textContent='目前沒有可匯出的資料。'; return;}
     if(format==='json'){
       const blob=new Blob([JSON.stringify(rows,null,2)],{type:'application/json;charset=utf-8;'}), url=URL.createObjectURL(blob), a=document.createElement('a');
@@ -364,8 +364,10 @@ function renderItems(keyword=''){
 }
 async function loadItems(){
   $('items').innerHTML='讀取中...';
-  const snap = await db.collection('phrases').orderBy('order','asc').get();
-  allItems=[]; snap.forEach(d=>allItems.push({id:d.id, ...d.data()}));
+  const snap = await db.collection('phrases').get();
+  allItems=[]; 
+  snap.forEach(d=>allItems.push({id:d.id, ...d.data()}));
+  allItems.sort((a,b)=>Number(a.order||0)-Number(b.order||0));
   renderItems($('searchInput').value.trim());
 }
 function runSearch(){ renderItems($('searchInput').value.trim()); }
