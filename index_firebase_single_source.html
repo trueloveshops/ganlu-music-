@@ -75,6 +75,22 @@ body {
   position:absolute; top:72px; left:50%; transform:translateX(-50%); z-index:4;
   width:84%; text-align:center;
 }
+
+.lotus-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-decoration:none;
+  cursor:pointer;
+  opacity:.96;
+  transition:transform .25s ease, opacity .25s ease, filter .25s ease;
+}
+.lotus-link:hover{
+  opacity:1;
+  transform:scale(1.05);
+  filter:drop-shadow(0 0 8px rgba(255,255,255,.45));
+}
+
 .lotus-mark {
   width:64px; height:24px; margin:0 auto 8px; opacity:.96;
 }
@@ -398,11 +414,13 @@ html, body {
   </div>
 
   <div class="title-wrap">
-    <svg class="lotus-mark" viewBox="0 0 120 48">
-      <path d="M60 43c8-10 8-18 0-28-8 10-8 18 0 28Z" fill="none" stroke="rgba(245,251,251,.9)" stroke-width="2"/>
-      <path d="M60 43c16-6 20-18 10-32-16 4-21 15-10 32Z" fill="none" stroke="rgba(245,251,251,.8)" stroke-width="2"/>
-      <path d="M60 43c-16-6-20-18-10-32 16 4 21 15 10 32Z" fill="none" stroke="rgba(245,251,251,.8)" stroke-width="2"/>
-    </svg>
+    <a class="lotus-link" href="https://www.godsdirectcontact.org.tw/ch2/smch/smch.php" target="_blank" rel="noopener noreferrer" aria-label="前往清海無上師甘露法語網站">
+      <svg class="lotus-mark" viewBox="0 0 120 48">
+        <path d="M60 43c8-10 8-18 0-28-8 10-8 18 0 28Z" fill="none" stroke="rgba(245,251,251,.9)" stroke-width="2"/>
+        <path d="M60 43c16-6 20-18 10-32-16 4-21 15-10 32Z" fill="none" stroke="rgba(245,251,251,.8)" stroke-width="2"/>
+        <path d="M60 43c-16-6-20-18-10-32 16 4 21 15 10 32Z" fill="none" stroke="rgba(245,251,251,.8)" stroke-width="2"/>
+      </svg>
+    </a>
     <div class="title">清海無上師甘露法語</div>
   </div>
 
