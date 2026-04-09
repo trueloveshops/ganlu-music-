@@ -57,7 +57,7 @@ button[disabled]{opacity:.6;cursor:not-allowed}.btn-primary{background:#2d6a4f;c
 
   <div class="card hidden" id="importPanel">
     <h2>批量匯入 CSV</h2>
-    <div class="help">CSV 欄位順序：text,date,url,audioFile,imageFile,order,published。匯入時會自動避免重複、補齊 createdAt；若 order 空白會自動順排，published 空白則預設發布。</div>
+    <div class="help">CSV 欄位順序：text,date,url,audioFile,imageFile,order,published。匯入時系統會自動補上 createdAt，作為首頁最新法語排序依據。</div>
     <input id="csvFile" type="file" accept=".csv,text/csv">
     <div class="toolbar">
       <button class="btn-blue" id="previewBtn" type="button">預覽 CSV</button>
@@ -97,6 +97,8 @@ button[disabled]{opacity:.6;cursor:not-allowed}.btn-primary{background:#2d6a4f;c
       <button class="btn-primary" id="exportJsonBtn" type="button">匯出 JSON</button>
       <button class="btn-blue" id="exportCsvBtn" type="button">匯出 CSV</button>
       <button class="btn-gray" id="exportPublishedJsonBtn" type="button">匯出已發布 JSON</button>
+      <button class="btn-purple" id="publishAllBtn" type="button">一鍵全部上架</button>
+      <button class="btn-blue" id="fixOrderBtn" type="button">自動補排序</button>
       <button class="btn-danger" id="clearAllBtn" type="button">清空全部資料</button>
     </div>
     <p id="exportMsg"></p>
@@ -214,48 +216,34 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function csvEsc(s){s=String(s||''); return (s.includes('"')||s.includes(',')||s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;}
 function titleFromText(v){v=String(v||'').trim(); return v ? v.slice(0,20) : '未命名';}
 function hashString(str){let h=5381; for(let i=0;i<str.length;i++){h=((h<<5)+h)+str.charCodeAt(i); h=h>>>0;} return 'p_'+h.toString(16);}
-function normalizeTextForId(v){return String(v||'').replace(/\s+/g,' ').trim();}
-function buildId(payload){return hashString([normalizeTextForId(payload.text),String(payload.date||'').trim(),String(payload.url||'').trim(),String(payload.audioFile||'').trim(),String(payload.imageFile||'').trim()].join('||'));}
-function normalizePublished(v){v=String(v??'').trim().toLowerCase(); if(v==='') return true; return !(v==='false'||v==='0'||v==='no'||v==='n'||v==='off');}
-function parseOrderValue(v){const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;}
-function hasMeaningfulOrder(v){return parseOrderValue(v) > 0;}
-function getCreatedAtMs(ts){try{ if(!ts) return 0; if(typeof ts.toDate === 'function') return ts.toDate().getTime(); const d = new Date(ts); return Number.isNaN(d.getTime()) ? 0 : d.getTime(); }catch(err){ return 0; }}
-function comparePhraseItems(a,b){
-  const aHas = hasMeaningfulOrder(a?.order);
-  const bHas = hasMeaningfulOrder(b?.order);
-  if(aHas && bHas){
-    const diff = parseOrderValue(a.order) - parseOrderValue(b.order);
-    if(diff !== 0) return diff;
-  }else if(aHas !== bHas){
-    return aHas ? -1 : 1;
-  }
-  const timeDiff = getCreatedAtMs(b?.createdAt) - getCreatedAtMs(a?.createdAt);
-  if(timeDiff !== 0) return timeDiff;
-  return String(a?.text||'').localeCompare(String(b?.text||''), 'zh-Hant');
+function buildId(payload){return hashString([payload.text||'',payload.date||'',payload.url||'',payload.audioFile||'',payload.imageFile||''].join('||'));}
+function normalizePublished(v, defaultValue=true){
+  if(typeof v==='boolean') return v;
+  const s=String(v??'').trim().toLowerCase();
+  if(!s) return defaultValue;
+  if(['true','1','yes','y'].includes(s)) return true;
+  if(['false','0','no','n'].includes(s)) return false;
+  return defaultValue;
 }
-function getNextOrderValue(items = allItems){
-  let maxOrder = 0;
-  (items || []).forEach(item => {
-    const n = parseOrderValue(item?.order);
-    if(n > maxOrder) maxOrder = n;
-  });
-  return maxOrder + 1;
+function normalizeOrder(v, fallback=0){
+  const n = Number(v);
+  return Number.isFinite(n) && n>0 ? n : fallback;
 }
-function payloadFromFields(obj){
-  const text = String(obj.text||'').trim();
-  const audioFile = String(obj.audioFile||'').trim();
-  const imageFile = String(obj.imageFile||'').trim();
+function payloadFromFields(obj, options={}){
+  const text=String(obj.text||'').trim();
+  const defaultPublished = typeof options.defaultPublished === 'boolean' ? options.defaultPublished : true;
+  const fallbackOrder = Number(options.fallbackOrder || 0);
   return {
     title:titleFromText(text),
     text:text,
     date:String(obj.date||'').trim(),
     url:String(obj.url||'').trim(),
-    audioFile:audioFile,
-    imageFile:imageFile,
-    audioUrl:buildUrl(AUDIO_BASE,audioFile),
-    imageUrl:buildUrl(IMAGE_BASE,imageFile),
-    order:parseOrderValue(obj.order),
-    published:typeof obj.published==='boolean' ? obj.published : normalizePublished(obj.published),
+    audioFile:String(obj.audioFile||'').trim(),
+    imageFile:String(obj.imageFile||'').trim(),
+    audioUrl:buildUrl(AUDIO_BASE,obj.audioFile||''),
+    imageUrl:buildUrl(IMAGE_BASE,obj.imageFile||''),
+    order:normalizeOrder(obj.order, fallbackOrder),
+    published:normalizePublished(obj.published, defaultPublished),
     updatedAt:firebase.firestore.FieldValue.serverTimestamp()
   };
 }
@@ -302,20 +290,9 @@ $('saveBtn').addEventListener('click', async ()=>{
   isSaving=true; $('saveBtn').disabled=true; $('saveBtn').textContent='儲存中...'; $('saveMsg').textContent='';
   try{
     if($('docId').value){
-      const currentItem = allItems.find(item => item.id === $('docId').value) || null;
-      if(!hasMeaningfulOrder(payload.order)){
-        payload.order = hasMeaningfulOrder(currentItem?.order) ? parseOrderValue(currentItem.order) : getNextOrderValue();
-      }
-      if(currentItem?.createdAt){
-        payload.createdAt = currentItem.createdAt;
-      }
-      await db.collection('phrases').doc($('docId').value).set(payload,{merge:true});
+      await db.collection('phrases').doc($('docId').value).update(payload);
       $('saveMsg').textContent='更新成功';
     }else{
-      if(!hasMeaningfulOrder(payload.order)){
-        payload.order = getNextOrderValue();
-      }
-      payload.published = payload.published !== false;
       const id = buildId(payload);
       payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       await db.collection('phrases').doc(id).set(payload,{merge:true});
@@ -357,6 +334,45 @@ async function clearAllPhrases(){
   return count;
 }
 
+async function publishAllPhrases(){
+  const snap = await db.collection('phrases').get();
+  let count=0, batch=db.batch(), n=0;
+  snap.forEach(doc=>{
+    batch.update(doc.ref, { published:true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    count++; n++;
+    if(n===200){
+      batch.commit();
+      batch = db.batch();
+      n=0;
+    }
+  });
+  if(n>0) await batch.commit();
+  return count;
+}
+async function fixAllOrders(){
+  const snap = await db.collection('phrases').get();
+  const docs = [];
+  snap.forEach(doc=>docs.push({id:doc.id, ref:doc.ref, ...(doc.data()||{})}));
+  docs.sort((a,b)=>{
+    const ao = Number(a.order||0), bo = Number(b.order||0);
+    if(ao>0 && bo>0) return ao-bo;
+    const at = a.createdAt?.seconds || 0, bt = b.createdAt?.seconds || 0;
+    return bt-at;
+  });
+  let count=0, batch=db.batch(), n=0;
+  docs.forEach((doc, idx)=>{
+    batch.update(doc.ref, { order: idx+1, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    count++; n++;
+    if(n===200){
+      batch.commit();
+      batch = db.batch();
+      n=0;
+    }
+  });
+  if(n>0) await batch.commit();
+  return count;
+}
+
 $('previewBtn').addEventListener('click', async ()=>{
   $('importMsg').textContent=''; $('previewBox').innerHTML=''; $('previewBox').classList.add('hidden'); $('importBtn').disabled=true; parsedRows=[];
   const file = $('csvFile').files[0];
@@ -381,56 +397,25 @@ $('importBtn').addEventListener('click', async ()=>{
   $('importBtn').disabled=true; $('previewBtn').disabled=true; $('importMsg').innerHTML='<span style="color:#b45309">匯入中...</span>';
   try{
     let cleared=0;
-    const shouldClear = $('clearBeforeImport').checked;
-    if(shouldClear) cleared = await clearAllPhrases();
+    if($('clearBeforeImport').checked) cleared = await clearAllPhrases();
 
-    const existingSnap = shouldClear ? null : await db.collection('phrases').get();
-    const existingDocs = new Map();
-    const seenIds = new Set();
-    let nextOrder = shouldClear ? 1 : getNextOrderValue();
-
-    if(existingSnap){
-      existingSnap.forEach(doc => {
-        existingDocs.set(doc.id, doc.data() || {});
-        seenIds.add(doc.id);
-      });
+    let autoOrderBase = 1;
+    if(!$('clearBeforeImport').checked){
+      const existingSnap = await db.collection('phrases').get();
+      autoOrderBase = existingSnap.size + 1;
     }
 
-    const preparedRows = [];
-    let skippedDuplicates = 0;
-
-    parsedRows.forEach((row, rowIndex) => {
-      const payload = payloadFromFields(row);
-      const id = buildId(payload);
-      const existing = existingDocs.get(id) || null;
-
-      if(!hasMeaningfulOrder(payload.order)) payload.order = nextOrder++;
-      payload.published = normalizePublished(row.published);
-
-      if(existing?.createdAt){
-        payload.createdAt = existing.createdAt;
-      }else{
-        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-      }
-
-      const duplicateInImport = preparedRows.some(item => item.id === id);
-      if(duplicateInImport){
-        skippedDuplicates++;
-        return;
-      }
-
-      preparedRows.push({ id, payload, rowIndex });
-    });
-
-    for(let i=0;i<preparedRows.length;i+=200){
+    for(let i=0;i<parsedRows.length;i+=200){
       const batch = db.batch();
-      preparedRows.slice(i,i+200).forEach(({id, payload})=>{
-        batch.set(db.collection('phrases').doc(id), payload, {merge:true});
+      parsedRows.slice(i,i+200).forEach((row, idx)=>{
+        const fallbackOrder = autoOrderBase + i + idx;
+        const payload = payloadFromFields(row, { defaultPublished:true, fallbackOrder });
+        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        batch.set(db.collection('phrases').doc(buildId(payload)), payload, {merge:true});
       });
       await batch.commit();
     }
-
-    $('importMsg').innerHTML=`<span style="color:#2d6a4f">批量匯入完成，共處理 ${preparedRows.length} 筆。${skippedDuplicates ? `已略過 ${skippedDuplicates} 筆重複資料。` : ''}${shouldClear ? `已先清空 ${cleared} 筆舊資料。` : ''}</span>`;
+    $('importMsg').innerHTML=`<span style="color:#2d6a4f">批量匯入完成，共處理 ${parsedRows.length} 筆。${$('clearBeforeImport').checked ? `已先清空 ${cleared} 筆舊資料。` : ''}</span>`;
     parsedRows=[]; $('csvFile').value=''; $('previewBox').classList.add('hidden'); $('previewBox').innerHTML=''; $('previewBtn').disabled=false;
     await loadItems();
   }catch(err){
@@ -500,6 +485,28 @@ async function exportData(format, onlyPublished=false){
 $('exportJsonBtn').addEventListener('click', ()=>exportData('json', false));
 $('exportCsvBtn').addEventListener('click', ()=>exportData('csv', false));
 $('exportPublishedJsonBtn').addEventListener('click', ()=>exportData('json', true));
+$('publishAllBtn').addEventListener('click', async ()=>{
+  if(!confirm('確定要把全部法語改成發布嗎？')) return;
+  $('exportMsg').textContent='批次上架中...';
+  try{
+    const n = await publishAllPhrases();
+    $('exportMsg').textContent=`已將 ${n} 筆法語改成發布。`;
+    await loadItems();
+  }catch(err){
+    $('exportMsg').textContent='批次上架失敗：'+err.message;
+  }
+});
+$('fixOrderBtn').addEventListener('click', async ()=>{
+  if(!confirm('確定要自動重排全部排序嗎？')) return;
+  $('exportMsg').textContent='自動補排序中...';
+  try{
+    const n = await fixAllOrders();
+    $('exportMsg').textContent=`已重新排序 ${n} 筆法語。`;
+    await loadItems();
+  }catch(err){
+    $('exportMsg').textContent='自動補排序失敗：'+err.message;
+  }
+});
 $('clearAllBtn').addEventListener('click', async ()=>{
   if(!confirm('確定要清空全部法語資料嗎？這個動作無法復原。')) return;
   $('exportMsg').textContent='清空中...';
@@ -616,7 +623,14 @@ async function loadItems(){
   const snap = await db.collection('phrases').get();
   allItems=[]; 
   snap.forEach(d=>allItems.push({id:d.id, ...d.data()}));
-  allItems.sort(comparePhraseItems);
+  allItems.sort((a,b)=>{
+    const ao = Number(a.order||0), bo = Number(b.order||0);
+    if(ao>0 && bo>0) return ao-bo;
+    if(ao>0) return -1;
+    if(bo>0) return 1;
+    const at = a.createdAt?.seconds || 0, bt = b.createdAt?.seconds || 0;
+    return bt-at;
+  });
   renderItems($('searchInput').value.trim());
 }
 function runSearch(){ renderItems($('searchInput').value.trim()); }
