@@ -145,6 +145,9 @@ body {
 .search-topbar .pager-arrows{
   display:flex; align-items:center; gap:10px;
 }
+.search-topbar .pager-arrows.is-dim{
+  opacity:.45;
+}
 .search-topbar button {
   border:none; background:transparent; color:var(--fg); cursor:pointer;
   font-size:20px; padding:0 2px; opacity:.9; line-height:1;
@@ -1395,10 +1398,10 @@ function setCurrentSearchPage(page) {
 }
 
 function buildTopPager(page, totalPages) {
-  if (totalPages <= 1) return '';
+  const isSinglePage = totalPages <= 1;
   return `
     <div class="search-topbar">
-      <div class="pager-arrows">
+      <div class="pager-arrows ${isSinglePage ? 'is-dim' : ''}">
         <button type="button" onclick="changeSearchPage(-1)" ${page <= 0 ? 'disabled' : ''}>‹</button>
         <button type="button" onclick="changeSearchPage(1)" ${page >= totalPages - 1 ? 'disabled' : ''}>›</button>
       </div>
@@ -1468,9 +1471,14 @@ function setSearchMode(mode, rerender = true) {
 
 function updateSearchResults() {
   const q = searchInput.value.trim();
+  const previousQuery = searchState.query;
   searchState.query = q;
-  searchState.quotePage = 0;
-  searchState.trackPage = 0;
+
+  const queryChanged = previousQuery !== q;
+  if (queryChanged) {
+    searchState.quotePage = 0;
+    searchState.trackPage = 0;
+  }
 
   if (!q) {
     renderSearchPanelResults();
@@ -1491,10 +1499,22 @@ function updateSearchResults() {
 
   const currentModeResults = getCurrentSearchResults();
   if (!currentModeResults.length) {
-    if (searchState.quoteResults.length) {
+    if (searchState.quoteResults.length && !searchState.trackResults.length) {
       setSearchMode('quote', false);
-    } else if (searchState.trackResults.length) {
+    } else if (searchState.trackResults.length && !searchState.quoteResults.length) {
       setSearchMode('track', false);
+    } else if (searchState.quoteResults.length || searchState.trackResults.length) {
+      const quotePages = Math.ceil(searchState.quoteResults.length / SEARCH_PAGE_SIZE);
+      const trackPages = Math.ceil(searchState.trackResults.length / SEARCH_PAGE_SIZE);
+      setSearchMode(trackPages > quotePages ? 'track' : 'quote', false);
+    }
+  } else if (queryChanged) {
+    const quotePages = Math.ceil(searchState.quoteResults.length / SEARCH_PAGE_SIZE);
+    const trackPages = Math.ceil(searchState.trackResults.length / SEARCH_PAGE_SIZE);
+    if (trackPages > quotePages) {
+      setSearchMode('track', false);
+    } else if (quotePages > trackPages) {
+      setSearchMode('quote', false);
     }
   }
 
