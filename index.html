@@ -1082,8 +1082,27 @@ function formatTime(sec) {
   return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
 
+function getDefaultCover() {
+  return 'images/default.jpg';
+}
+
 function trackCover() {
-  return BACKGROUNDS[bgIndex];
+  const track = TRACKS[currentTrackIndex];
+  if (!track || !track.file) return getDefaultCover();
+
+  const normalized = String(track.file).replace(/^\/+/, '');
+  const parts = normalized.split('/');
+
+  // 預期格式：music/1/專輯資料夾/歌曲.mp3
+  if (parts.length >= 4 && parts[0] === 'music') {
+    const batchFolder = parts[1];
+    const albumFolder = parts[2];
+    if (batchFolder && albumFolder) {
+      return `images/${batchFolder}/${albumFolder}.jpg`;
+    }
+  }
+
+  return getDefaultCover();
 }
 
 function renderTrack() {
@@ -1091,7 +1110,14 @@ function renderTrack() {
   if (!track) return;
   songTitle.textContent = track.display || track.title;
   songMeta.textContent = track.category || '';
-  cover.src = trackCover();
+
+  const desiredCover = trackCover();
+  cover.onerror = () => {
+    cover.onerror = null;
+    cover.src = getDefaultCover();
+  };
+  cover.src = desiredCover;
+
   localStorage.setItem('ganlu_track_index', String(currentTrackIndex));
 }
 
