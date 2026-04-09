@@ -51,12 +51,13 @@ button[disabled]{opacity:.6;cursor:not-allowed}.btn-primary{background:#2d6a4f;c
     </div>
     <button class="btn-primary" id="saveBtn" type="button">儲存</button>
     <button class="btn-gray" id="resetBtn" type="button">清空</button>
+    <div class="help">系統會自動寫入建立時間 createdAt，不需要手動填寫；首頁可用它優先顯示最新新增的法語。</div>
     <p id="saveMsg"></p>
   </div>
 
   <div class="card hidden" id="importPanel">
     <h2>批量匯入 CSV</h2>
-    <div class="help">CSV 欄位順序：text,date,url,audioFile,imageFile,order,published</div>
+    <div class="help">CSV 欄位順序：text,date,url,audioFile,imageFile,order,published。匯入時系統會自動補上 createdAt，作為首頁最新法語排序依據。</div>
     <input id="csvFile" type="file" accept=".csv,text/csv">
     <div class="toolbar">
       <button class="btn-blue" id="previewBtn" type="button">預覽 CSV</button>
@@ -101,6 +102,20 @@ button[disabled]{opacity:.6;cursor:not-allowed}.btn-primary{background:#2d6a4f;c
     <p id="exportMsg"></p>
   </div>
 
+  <div class="card hidden" id="visitStatsPanel">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <h2>網站使用統計</h2>
+      <button class="btn-blue" id="refreshStatsBtn" type="button">重新整理人數</button>
+    </div>
+    <div class="row3">
+      <div class="item"><div class="meta">今日使用人數</div><div id="visitTodayCount" style="font-size:28px;font-weight:700;">-</div></div>
+      <div class="item"><div class="meta">累計使用次數</div><div id="visitTotalCount" style="font-size:28px;font-weight:700;">-</div></div>
+      <div class="item"><div class="meta">最近更新</div><div id="visitUpdatedAt" style="font-size:18px;font-weight:600;">-</div></div>
+    </div>
+    <div class="help">統計方式：同一裝置同一天只計 1 次，避免短時間重複刷新被重複計算。</div>
+    <div id="visitRecentList" class="help" style="margin-top:10px;"></div>
+  </div>
+
   <div class="card hidden" id="listPanel">
     <h2>法語列表</h2>
     <div class="toolbar" style="margin-bottom:14px;">
@@ -126,6 +141,73 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const $ = (id)=>document.getElementById(id);
 let allItems = [], parsedRows = [], isSaving = false, isLoggingIn = false;
+
+const VISIT_STATS_COLLECTION = 'site_visits_daily';
+
+function getTaipeiNow(){
+  try{
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+  }catch(err){
+    return new Date();
+  }
+}
+function getTaipeiDateId(){
+  const now = getTaipeiNow();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,'0');
+  const d = String(now.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function formatTs(ts){
+  try{
+    if(!ts) return '—';
+    if(typeof ts.toDate === 'function') return ts.toDate().toLocaleString('zh-TW');
+    const d = new Date(ts);
+    return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('zh-TW');
+  }catch(err){
+    return '—';
+  }
+}
+async function loadVisitStats(){
+  $('visitTodayCount').textContent='讀取中…';
+  $('visitTotalCount').textContent='讀取中…';
+  $('visitUpdatedAt').textContent='—';
+  $('visitRecentList').textContent='';
+
+  const todayId = getTaipeiDateId();
+  const snap = await db.collection(VISIT_STATS_COLLECTION).get();
+
+  let total = 0;
+  let today = 0;
+  let latestUpdatedAt = null;
+  const rows = [];
+
+  snap.forEach(doc => {
+    const data = doc.data() || {};
+    const count = Number(data.count || 0);
+    total += count;
+    if (doc.id === todayId) today = count;
+
+    const updatedAt = data.updatedAt || null;
+    if (updatedAt && (!latestUpdatedAt || (updatedAt.seconds || 0) > (latestUpdatedAt.seconds || 0))) {
+      latestUpdatedAt = updatedAt;
+    }
+
+    rows.push({
+      id: doc.id,
+      count,
+      updatedAt
+    });
+  });
+
+  rows.sort((a,b)=> String(b.id).localeCompare(String(a.id)));
+  const recent = rows.slice(0,7).map(r => `${r.id}：${r.count} 人`).join('　｜　');
+
+  $('visitTodayCount').textContent = String(today);
+  $('visitTotalCount').textContent = String(total);
+  $('visitUpdatedAt').textContent = formatTs(latestUpdatedAt);
+  $('visitRecentList').textContent = recent ? `最近 7 天：${recent}` : '目前還沒有使用紀錄。';
+}
 
 function buildUrl(base, filename){filename=String(filename||'').trim(); if(!filename) return ''; if(/^https?:\/\//i.test(filename)) return filename; return base + encodeURIComponent(filename).replace(/%2F/g,'/');}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
@@ -163,8 +245,8 @@ $('logoutBtn').addEventListener('click', ()=>auth.signOut());
 auth.onAuthStateChanged(async user=>{
   const ok = user && (user.email||'').toLowerCase() === ADMIN_EMAIL.toLowerCase();
   ['loginCard'].forEach(id=>$(id).classList.toggle('hidden', !!ok));
-  ['adminPanel','importPanel','themePanel','exportPanel','listPanel'].forEach(id=>$(id).classList.toggle('hidden', !ok));
-  if(ok){await loadItems(); await loadThemeSettings();}
+  ['adminPanel','importPanel','themePanel','exportPanel','visitStatsPanel','listPanel'].forEach(id=>$(id).classList.toggle('hidden', !ok));
+  if(ok){await loadItems(); await loadThemeSettings(); await loadVisitStats();}
 });
 
 function clearForm(){['docId','text','date','url','audioFile','imageFile','order'].forEach(id=>$(id).value=''); $('published').value='true'; $('saveMsg').textContent=''; $('saveBtn').disabled=false; $('saveBtn').textContent='儲存'; isSaving=false;}
@@ -452,6 +534,7 @@ $('searchInput').addEventListener('compositionend', runSearch);
 $('searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){e.preventDefault(); runSearch();} });
 $('runSearchBtn').addEventListener('click', runSearch);
 $('clearSearchBtn').addEventListener('click', ()=>{ $('searchInput').value=''; renderItems(''); });
+$('refreshStatsBtn').addEventListener('click', loadVisitStats);
 </script>
 </body>
 </html>

@@ -329,7 +329,7 @@ html, body {
 #outerBlurBg{
   position: fixed;
   inset: 0;
-  background: url("BG/bg1.png") center center / cover no-repeat;
+  background: linear-gradient(#0c1113, #000);
   filter: blur(20px) brightness(0.92);
   transform: scale(1.08);
   z-index: -3;
@@ -713,12 +713,101 @@ let firebaseQuoteUnsubscribe = null;
 let firebaseAppearanceUnsubscribe = null;
 let firebaseHasConnected = false;
 
+const VISIT_STATS_COLLECTION = 'site_visits_daily';
+const VISIT_STORAGE_KEY = 'ganlu_visit_counted_date_v1';
+
+function getTaipeiNow() {
+  try {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+  } catch (e) {
+    return new Date();
+  }
+}
+
+function getTaipeiDateId() {
+  const now = getTaipeiNow();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+async function recordVisitIfNeeded(db) {
+  if (!db) return;
+  try {
+    const todayId = getTaipeiDateId();
+    const lastCountedDate = localStorage.getItem(VISIT_STORAGE_KEY);
+    if (lastCountedDate === todayId) return;
+
+    const ref = db.collection(VISIT_STATS_COLLECTION).doc(todayId);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const prev = snap.exists ? Number(snap.data().count || 0) : 0;
+      tx.set(ref, {
+        date: todayId,
+        count: prev + 1,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    });
+
+    localStorage.setItem(VISIT_STORAGE_KEY, todayId);
+  } catch (e) {
+    console.warn('訪問計數失敗：', e);
+  }
+}
+
+function getCreatedAtMs(value) {
+  if (!value) return 0;
+  try {
+    if (typeof value === 'number' && isFinite(value)) return value;
+    if (typeof value.toDate === 'function') return value.toDate().getTime();
+    if (typeof value.seconds === 'number') {
+      const nanos = typeof value.nanoseconds === 'number' ? value.nanoseconds : 0;
+      return value.seconds * 1000 + Math.floor(nanos / 1000000);
+    }
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  } catch (e) {
+    return 0;
+  }
+}
+
 function normalizeQuoteDoc(data = {}) {
+  const content = String(
+    data.text ??
+    data.content ??
+    data.quote ??
+    data.body ??
+    data.message ??
+    ''
+  ).trim();
+
+  const date = String(
+    data.date ??
+    data.source ??
+    data.ref ??
+    data.reference ??
+    ''
+  ).trim();
+
+  const url = String(
+    data.url ??
+    data.link ??
+    data.href ??
+    ''
+  ).trim();
+
+  let published = true;
+  if (typeof data.published !== 'undefined') {
+    published = data.published !== false && data.published !== 'false' && data.published !== 0;
+  }
+
   return {
-    content: data.text || data.content || data.quote || data.body || data.message || '',
-    date: data.date || data.source || data.ref || data.reference || '',
-    url: data.url || data.link || data.href || '',
-    published: data.published !== false
+    content,
+    date,
+    url,
+    published,
+    createdAt: data.createdAt ?? data.created_at ?? data.updatedAt ?? data.updated_at ?? null
   };
 }
 
@@ -764,16 +853,69 @@ function applyAppearanceSettings(settings = {}) {
   }
 }
 
+function getValidLocalQuotes() {
+  if (!Array.isArray(LEGACY_QUOTES)) return [];
+  return LEGACY_QUOTES
+    .map(normalizeQuoteDoc)
+    .filter(item => item.content);
+}
+
+function getRandomIndex(max) {
+  if (!max || max <= 0) return 0;
+  return Math.floor(Math.random() * max);
+}
+
+function renderImmediateFallback() {
+  const localQuotes = getValidLocalQuotes();
+  if (!localQuotes.length) return;
+
+  QUOTES = localQuotes;
+  currentQuoteIndex = 0;
+  renderQuote();
+}
+
+function sortQuotesForRotation(items = []) {
+  return [...items].sort((a, b) => {
+    const orderDiff = Number(a._order || 0) - Number(b._order || 0);
+    if (orderDiff !== 0) return orderDiff;
+    return getCreatedAtMs(b.createdAt) - getCreatedAtMs(a.createdAt);
+  });
+}
+
+function prioritizeLatestQuote(items = []) {
+  const sorted = sortQuotesForRotation(items);
+  if (sorted.length <= 1) return sorted;
+
+  let newestIndex = -1;
+  let newestMs = 0;
+
+  sorted.forEach((item, index) => {
+    const ms = getCreatedAtMs(item.createdAt);
+    if (ms > newestMs) {
+      newestMs = ms;
+      newestIndex = index;
+    }
+  });
+
+  if (newestIndex <= 0) return sorted;
+
+  const [featured] = sorted.splice(newestIndex, 1);
+  return [featured, ...sorted];
+}
+
 function subscribeFirebaseSingleSource() {
   if (firebaseHasConnected) return;
   firebaseHasConnected = true;
 
   const db = initFirebaseSingleSource();
+
+  renderImmediateFallback();
+  recordVisitIfNeeded(db);
+
   if (!db) {
-    QUOTES = LEGACY_QUOTES.slice();
-    currentQuoteIndex = 0;
-    renderQuote();
-    quoteText.textContent = '無法連線 Firebase，已改用內建法語';
+    if (!QUOTES.length) {
+      quoteText.textContent = '無法連線 Firebase';
+    }
     return;
   }
 
@@ -783,24 +925,39 @@ function subscribeFirebaseSingleSource() {
       const raw = d.data() || {};
       const item = normalizeQuoteDoc(raw);
       item._order = Number(raw.order || 0);
-      if ((item.content || '').trim() && item.published !== false) rows.push(item);
+      if (item.content && item.published !== false) rows.push(item);
     });
-    rows.sort((a, b) => Number(a._order || 0) - Number(b._order || 0));
 
-    if (rows.length) {
-      QUOTES = rows;
-    } else {
-      console.warn('Firestore phrases 集合為空，改用內建法語。');
-      QUOTES = LEGACY_QUOTES.slice();
+    const orderedRows = prioritizeLatestQuote(rows);
+
+    if (orderedRows.length) {
+      const previouslyShownContent = QUOTES[currentQuoteIndex]?.content || '';
+      QUOTES = orderedRows;
+
+      if (!previouslyShownContent) {
+        currentQuoteIndex = 0;
+      } else {
+        const matchedIndex = QUOTES.findIndex(item => item.content === previouslyShownContent);
+        currentQuoteIndex = matchedIndex >= 0 ? matchedIndex : 0;
+      }
+
+      renderQuote();
+    } else if (!QUOTES.length) {
+      console.warn('Firestore phrases 集合為空，且內建法語也為空。');
+      quoteText.textContent = '目前沒有法語資料';
+      sourceLink.textContent = '';
+      sourceLink.removeAttribute('href');
+      sourceLink.classList.add('disabled');
     }
-
-    currentQuoteIndex = 0;
-    renderQuote();
   }, (e) => {
     console.warn('讀取法語資料失敗：', e);
-    QUOTES = LEGACY_QUOTES.slice();
-    currentQuoteIndex = 0;
-    renderQuote();
+    if (!QUOTES.length) {
+      renderImmediateFallback();
+    }
+    if (!QUOTES.length) {
+      quoteText.textContent = '讀取法語資料失敗';
+      sourceLink.textContent = '';
+    }
   });
 
   firebaseAppearanceUnsubscribe = db.collection('site_settings').doc('appearance').onSnapshot((snap) => {
@@ -810,7 +967,6 @@ function subscribeFirebaseSingleSource() {
     console.warn('讀取外觀設定失敗：', e);
   });
 }
-
 
 function updateDateTime() {
   const now = new Date();
@@ -824,6 +980,7 @@ function updateDateTime() {
 }
 updateDateTime();
 setInterval(updateDateTime, 1000);
+subscribeFirebaseSingleSource();
 
 function dailyQuoteIndex() {
   const start = new Date(2026,0,1);
@@ -863,7 +1020,6 @@ function renderQuote() {
     sourceLink.classList.add('disabled');
   }
 }
-subscribeFirebaseSingleSource();
 renderQuote();
 
 function goNextQuote() {
