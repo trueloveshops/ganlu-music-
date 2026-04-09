@@ -71,6 +71,7 @@ body {
   box-shadow:var(--shadow);
 }
 .icon-btn svg { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+#bgBtn{z-index:20; touch-action:manipulation;}
 .title-wrap {
   position:absolute; top:72px; left:50%; transform:translateX(-50%); z-index:4;
   width:84%; text-align:center;
@@ -236,11 +237,7 @@ body {
   font-size:11px; text-align:center; white-space:nowrap;
 }
 .toast {
-  position:absolute; left:50%; transform:translateX(-50%);
-  bottom:176px; z-index:7; display:none;
-  max-width:80%; padding:10px 14px; border-radius:16px;
-  background:rgba(6,20,24,.74); border:1px solid rgba(255,255,255,.16); backdrop-filter: blur(14px);
-  font-size:12px; text-align:center;
+  display:none !important;
 }
 
 /* ===== 手機播放器收合與音量修正 ===== */
@@ -550,10 +547,7 @@ let bgIndex = Number(localStorage.getItem('ganlu_bg_index') || 0) % BACKGROUNDS.
 let bgFront = true;
 
 function showToast(msg) {
-  toast.textContent = msg;
-  toast.style.display = 'block';
-  clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => toast.style.display = 'none', 1800);
+  return;
 }
 
 function setBackground(index) {
@@ -639,10 +633,17 @@ function useBackgroundList(list, resetIndex = true) {
 }
 
 function applyThemeByIndex(index) {
+  if (!externalBackgrounds.length) return;
+
   if (externalBackgrounds.length < 30) {
-    showToast('需放入 bg1 到 bg30');
+    currentThemeIndex = 0;
+    currentBgSpeed = 8000;
+    useBackgroundList(externalBackgrounds, true);
+    restartBackgroundTimer();
+    localStorage.removeItem('ganlu_theme_index');
     return;
   }
+
   currentThemeIndex = (index + THEME_GROUPS.length) % THEME_GROUPS.length;
   const theme = THEME_GROUPS[currentThemeIndex];
   const group = externalBackgrounds.slice(theme.start, theme.end);
@@ -651,7 +652,6 @@ function applyThemeByIndex(index) {
   useBackgroundList(group, true);
   restartBackgroundTimer();
   localStorage.setItem('ganlu_theme_index', String(currentThemeIndex));
-  showToast(`主題：${theme.name}`);
 }
 
 async function enableExternalBackgrounds() {
@@ -685,25 +685,47 @@ window.addEventListener('load', async () => {
 
 const bgBtn = document.getElementById('bgBtn');
 
-bgBtn.addEventListener('mousedown', () => {
-  bgLongPressTriggered = false;
-  bgPressTimer = setTimeout(() => {
-    bgLongPressTriggered = true;
-    applyThemeByIndex(currentThemeIndex + 1);
-  }, 800);
-});
-
-bgBtn.addEventListener('mouseup', () => clearTimeout(bgPressTimer));
-bgBtn.addEventListener('mouseleave', () => clearTimeout(bgPressTimer));
-
-bgBtn.addEventListener('click', (e) => {
-  if (bgLongPressTriggered) {
-    e.preventDefault();
-    bgLongPressTriggered = false;
-    return;
+function clearBgPressTimer() {
+  if (bgPressTimer) {
+    clearTimeout(bgPressTimer);
+    bgPressTimer = null;
   }
+}
+
+function handleBgShortPress() {
   setBackground(bgIndex + 1);
   renderTrack();
+}
+
+function handleBgLongPress() {
+  bgLongPressTriggered = true;
+  applyThemeByIndex(currentThemeIndex + 1);
+}
+
+bgBtn.style.touchAction = 'manipulation';
+
+bgBtn.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  bgLongPressTriggered = false;
+  clearBgPressTimer();
+  bgPressTimer = setTimeout(handleBgLongPress, 650);
+});
+
+bgBtn.addEventListener('pointerup', (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const wasLong = bgLongPressTriggered;
+  clearBgPressTimer();
+  if (!wasLong) handleBgShortPress();
+  bgLongPressTriggered = false;
+});
+
+bgBtn.addEventListener('pointercancel', () => {
+  clearBgPressTimer();
+  bgLongPressTriggered = false;
+});
+
+bgBtn.addEventListener('pointerleave', () => {
+  clearBgPressTimer();
 });
 
 document.getElementById('tvBtn').onclick = () => window.open('https://suprememastertv.com/ch1/max/', '_blank');
@@ -1086,20 +1108,33 @@ function getDefaultCover() {
   return 'images/default.jpg';
 }
 
+function removeAudioExt(name) {
+  return String(name || '').replace(/\.(mp3|m4a|wav|ogg|flac)$/i, '');
+}
+
 function trackCover() {
   const track = TRACKS[currentTrackIndex];
   if (!track || !track.file) return getDefaultCover();
 
   const normalized = String(track.file).replace(/^\/+/, '');
-  const parts = normalized.split('/');
+  const parts = normalized.split('/').filter(Boolean);
 
-  // 預期格式：music/1/專輯資料夾/歌曲.mp3
-  if (parts.length >= 4 && parts[0] === 'music') {
-    const batchFolder = parts[1];
-    const albumFolder = parts[2];
-    if (batchFolder && albumFolder) {
-      return `images/${batchFolder}/${albumFolder}.jpg`;
-    }
+  if (parts[0] !== 'music' || parts.length < 3) {
+    return getDefaultCover();
+  }
+
+  const batchFolder = parts[1];
+  const lastPart = parts[parts.length - 1];
+
+  // music/3/單曲.mp3 -> images/3/單曲.jpg
+  if (parts.length === 3) {
+    return `images/${batchFolder}/${removeAudioExt(lastPart)}.jpg`;
+  }
+
+  // music/3/專輯資料夾/歌曲.mp3 -> images/3/專輯資料夾.jpg
+  const albumFolder = parts[2];
+  if (batchFolder && albumFolder) {
+    return `images/${batchFolder}/${albumFolder}.jpg`;
   }
 
   return getDefaultCover();
