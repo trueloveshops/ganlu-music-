@@ -874,11 +874,27 @@ function renderImmediateFallback() {
   renderQuote();
 }
 
+function hasMeaningfulOrderValue(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0;
+}
+
 function sortQuotesForRotation(items = []) {
   return [...items].sort((a, b) => {
-    const orderDiff = Number(a._order || 0) - Number(b._order || 0);
-    if (orderDiff !== 0) return orderDiff;
-    return getCreatedAtMs(b.createdAt) - getCreatedAtMs(a.createdAt);
+    const aHasOrder = hasMeaningfulOrderValue(a?._order);
+    const bHasOrder = hasMeaningfulOrderValue(b?._order);
+
+    if (aHasOrder && bHasOrder) {
+      const orderDiff = Number(a._order) - Number(b._order);
+      if (orderDiff !== 0) return orderDiff;
+    } else if (aHasOrder !== bHasOrder) {
+      return aHasOrder ? -1 : 1;
+    }
+
+    const timeDiff = getCreatedAtMs(b.createdAt) - getCreatedAtMs(a.createdAt);
+    if (timeDiff !== 0) return timeDiff;
+
+    return String(a.content || '').localeCompare(String(b.content || ''), 'zh-Hant');
   });
 }
 
