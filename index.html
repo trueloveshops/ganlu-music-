@@ -123,6 +123,18 @@ body {
   box-shadow:var(--shadow); padding:8px 0;
 }
 .search-panel::-webkit-scrollbar{display:none}
+.search-filter {
+  display:flex; gap:8px; margin-top:10px; justify-content:center;
+}
+.search-filter-btn {
+  border:none; background:rgba(255,255,255,.10); color:var(--fg);
+  border:1px solid rgba(255,255,255,.12); border-radius:999px;
+  padding:6px 12px; font-size:12px; cursor:pointer; opacity:.78;
+  backdrop-filter: blur(8px);
+}
+.search-filter-btn.active {
+  background:rgba(255,255,255,.22); opacity:1;
+}
 .section-label {
   padding:8px 14px 4px; font-size:12px; color:rgba(245,251,251,.72);
 }
@@ -132,6 +144,20 @@ body {
 .search-item:hover { background:rgba(255,255,255,.08); }
 .search-item .meta {
   font-size:11px; color:rgba(245,251,251,.62); margin-top:4px;
+}
+.search-pager {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:8px 14px 6px; border-top:1px solid rgba(255,255,255,.06);
+}
+.search-pager button {
+  border:none; background:transparent; color:var(--fg); cursor:pointer;
+  font-size:14px; padding:4px 2px; opacity:.9;
+}
+.search-pager button[disabled] {
+  opacity:.35; cursor:default;
+}
+.search-pager .page-info {
+  font-size:11px; color:rgba(245,251,251,.68);
 }
 .quote-card {
   position:absolute; top:205px; left:50%; transform:translateX(-50%);
@@ -437,6 +463,11 @@ html, body {
     <div class="search-box">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
       <input id="searchInput" type="text" placeholder="搜尋法語或音樂…">
+    </div>
+    <div class="search-filter" id="searchFilter">
+      <button type="button" class="search-filter-btn active" data-mode="all">全部</button>
+      <button type="button" class="search-filter-btn" data-mode="track">搜尋音樂</button>
+      <button type="button" class="search-filter-btn" data-mode="quote">搜尋法語</button>
     </div>
     <div id="searchPanel" class="search-panel"></div>
   </div>
@@ -1314,6 +1345,17 @@ progressBar.addEventListener('input', () => {
   if (audio.duration) audio.currentTime = progressBar.value / 100 * audio.duration;
 });
 
+const SEARCH_PAGE_SIZE = 30;
+const searchFilter = document.getElementById('searchFilter');
+const searchState = {
+  query: '',
+  mode: 'all',
+  quoteResults: [],
+  trackResults: [],
+  quotePage: 0,
+  trackPage: 0
+};
+
 function selectQuote(index) {
   currentQuoteIndex = index;
   renderQuote();
@@ -1329,39 +1371,113 @@ function playTrackByIndex(index) {
   searchInput.value = '';
 }
 
-searchInput.addEventListener('input', () => {
-  const q = searchInput.value.trim();
+function buildSearchPager(type, page, total) {
+  const totalPages = Math.max(1, Math.ceil(total / SEARCH_PAGE_SIZE));
+  if (totalPages <= 1) return '';
+  return `
+    <div class="search-pager">
+      <button type="button" onclick="changeSearchPage('${type}', -1)" ${page <= 0 ? 'disabled' : ''}>‹</button>
+      <div class="page-info">${page + 1} / ${totalPages}　共 ${total} 筆</div>
+      <button type="button" onclick="changeSearchPage('${type}', 1)" ${page >= totalPages - 1 ? 'disabled' : ''}>›</button>
+    </div>`;
+}
+
+function renderSearchPanelResults() {
+  const q = searchState.query;
   if (!q) {
     searchPanel.style.display = 'none';
     searchPanel.innerHTML = '';
     return;
   }
-  const qr = [];
-  QUOTES.forEach((item, idx) => {
-    if ((item.content || '').includes(q) || (item.date || '').includes(q)) qr.push([idx,item]);
-  });
-  const tr = [];
-  TRACKS.forEach((item, idx) => {
-    if ((item.display || '').includes(q) || (item.category || '').includes(q) || (item.title || '').includes(q)) tr.push([idx,item]);
-  });
+
   let html = '';
-  if (qr.length) {
-    html += '<div class="section-label">法語</div>';
-    qr.slice(0,6).forEach(([idx,item]) => {
+  const qr = searchState.quoteResults;
+  const tr = searchState.trackResults;
+  const mode = searchState.mode;
+
+  if ((mode === 'all' || mode === 'quote') && qr.length) {
+    const start = searchState.quotePage * SEARCH_PAGE_SIZE;
+    const pageItems = qr.slice(start, start + SEARCH_PAGE_SIZE);
+    html += `<div class="section-label">法語（${qr.length}）</div>`;
+    pageItems.forEach(([idx,item]) => {
       const short = item.content.length > 34 ? item.content.slice(0,34) + '…' : item.content;
       html += `<div class="search-item" onclick="selectQuote(${idx})"><div>${short}</div><div class="meta">${item.date || ''}</div></div>`;
     });
+    html += buildSearchPager('quote', searchState.quotePage, qr.length);
   }
-  if (tr.length) {
-    html += '<div class="section-label">音樂</div>';
-    tr.slice(0,8).forEach(([idx,item]) => {
+
+  if ((mode === 'all' || mode === 'track') && tr.length) {
+    const start = searchState.trackPage * SEARCH_PAGE_SIZE;
+    const pageItems = tr.slice(start, start + SEARCH_PAGE_SIZE);
+    html += `<div class="section-label">音樂（${tr.length}）</div>`;
+    pageItems.forEach(([idx,item]) => {
       html += `<div class="search-item" onclick="playTrackByIndex(${idx})"><div>${item.display}</div><div class="meta">${item.category}</div></div>`;
     });
+    html += buildSearchPager('track', searchState.trackPage, tr.length);
   }
+
   if (!html) html = '<div class="search-item">找不到結果</div>';
   searchPanel.innerHTML = html;
   searchPanel.style.display = 'block';
-});
+  searchPanel.scrollTop = 0;
+}
+
+function setSearchMode(mode) {
+  searchState.mode = mode;
+  document.querySelectorAll('.search-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  searchState.quotePage = 0;
+  searchState.trackPage = 0;
+  renderSearchPanelResults();
+}
+
+function updateSearchResults() {
+  const q = searchInput.value.trim();
+  searchState.query = q;
+  searchState.quotePage = 0;
+  searchState.trackPage = 0;
+
+  if (!q) {
+    renderSearchPanelResults();
+    return;
+  }
+
+  searchState.quoteResults = [];
+  QUOTES.forEach((item, idx) => {
+    if ((item.content || '').includes(q) || (item.date || '').includes(q)) searchState.quoteResults.push([idx,item]);
+  });
+
+  searchState.trackResults = [];
+  TRACKS.forEach((item, idx) => {
+    if ((item.display || '').includes(q) || (item.category || '').includes(q) || (item.title || '').includes(q) || (item.file || '').includes(q)) {
+      searchState.trackResults.push([idx,item]);
+    }
+  });
+
+  renderSearchPanelResults();
+}
+
+function changeSearchPage(type, delta) {
+  if (type === 'quote') {
+    const totalPages = Math.max(1, Math.ceil(searchState.quoteResults.length / SEARCH_PAGE_SIZE));
+    searchState.quotePage = Math.min(totalPages - 1, Math.max(0, searchState.quotePage + delta));
+  } else {
+    const totalPages = Math.max(1, Math.ceil(searchState.trackResults.length / SEARCH_PAGE_SIZE));
+    searchState.trackPage = Math.min(totalPages - 1, Math.max(0, searchState.trackPage + delta));
+  }
+  renderSearchPanelResults();
+}
+window.changeSearchPage = changeSearchPage;
+
+searchInput.addEventListener('input', updateSearchResults);
+if (searchFilter) {
+  searchFilter.addEventListener('click', (e) => {
+    const btn = e.target.closest('.search-filter-btn');
+    if (!btn) return;
+    setSearchMode(btn.dataset.mode || 'all');
+  });
+}
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.search-wrap')) searchPanel.style.display = 'none';
 });
