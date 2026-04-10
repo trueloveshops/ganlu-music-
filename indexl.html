@@ -1625,6 +1625,18 @@ document.getElementById("adminBtn").onclick = openAdminModal;
     document.body.style.overflow = 'hidden';  // To prevent scrolling when modal is open
   });
 </script>
+
+<script>
+  // Hide the admin modal by default on the homepage
+  document.getElementById('adminModal').style.display = 'none';
+
+  document.getElementById('adminBtn').addEventListener('click', function() {
+    var adminModal = document.getElementById('adminModal');
+    // Only show modal if the button is clicked
+    adminModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';  // Prevent scrolling when modal is open
+  });
+</script>
 </body>
 </html>
 <script>
