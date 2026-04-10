@@ -1576,55 +1576,54 @@ window.addEventListener('load', () => {
   <div style="width:min(92vw, 400px); height:80vh; max-height:600px; display:flex; flex-direction:column; justify-content:space-between; padding:45px 30px; border-radius:40px; text-align:center; background:rgba(255,255,255,0.3); border:1px solid rgba(255,255,255,0.5); box-shadow:0 18px 60px rgba(0,0,0,0.15);">
     
     <div>
-      <h1 style="font-size:20px; margin:0; font-weight:bold; color:#0056b3;">歡迎使用甘露法語音樂播放器</h1>
-      <p style="margin-top:10px; color:#4a6a8a; font-size:15px;">祝您法喜充滿，平安喜樂</p>
+      <h1 style="font-size:20px; margin:0; font-weight:bold; color:#0056b3;">歡迎使用管理系統</h1>
+      <p style="margin-top:10px; color:#4a6a8a; font-size:14px;">祝您法喜充滿，平安喜樂</p>
     </div>
 
     <div style="border-top:1px solid rgba(255,255,255,0.5); border-bottom:1px solid rgba(255,255,255,0.5); padding:20px 0; margin: 20px 0;">
-      <p style="font-size:14px; margin:0; opacity:0.8;">有任何建議或問題，請聯絡 LINE 管理員</p>
-      <div style="background:rgba(102,161,255,0.15); padding:6px 18px; border-radius:20px; display:inline-block; font-weight:bold; margin-top:10px; color:#0056b3; border:1px solid rgba(102,161,255,0.2);">LINE ID: @swp1809l</div>
+      <p style="font-size:14px; margin:0; opacity:0.8;">LINE ID: @swp1809l</p>
     </div>
 
     <div>
       <h2 style="font-size:17px; margin-bottom:15px; opacity:0.9;">後台管理登錄</h2>
       <input type="text" id="adminUser" placeholder="管理員帳號" style="width:100%; padding:13px; margin-bottom:12px; border-radius:12px; border:1px solid rgba(0,0,0,0.08); background:rgba(255,255,255,0.5); outline:none;">
       <input type="password" id="adminPass" placeholder="登錄密碼" style="width:100%; padding:13px; margin-bottom:12px; border-radius:12px; border:1px solid rgba(0,0,0,0.08); background:rgba(255,255,255,0.5); outline:none;">
+      
       <button onclick="loginSystem()" style="width:100%; padding:13px; border:none; border-radius:12px; background:#66a1ff; color:#fff; font-weight:bold; cursor:pointer; font-size:16px;">進入管理系統</button>
+      
       <div style="margin-top:20px; font-size:13px; opacity:0.6; cursor:pointer; text-decoration:underline;" onclick="hideAdmin()">返回播放器首頁</div>
     </div>
   </div>
 </div>
 
 <script>
-  // 1. 自動接通按鈕
+  // 1. 確保按鈕能打開這個視窗
   (function() {
-    function setupAdmin() {
+    function setup() {
       const btn = document.getElementById('adminBtn');
       if (btn) btn.onclick = showAdmin;
     }
-    if (document.readyState === 'complete') setupAdmin();
-    else window.addEventListener('load', setupAdmin);
+    if (document.readyState === 'complete') setup();
+    else window.addEventListener('load', setup);
   })();
 
   function showAdmin() { document.getElementById('adminOverlay').style.display = 'flex'; }
   function hideAdmin() { document.getElementById('adminOverlay').style.display = 'none'; }
 
-  // 2. 登錄邏輯：檢查帳號密碼
+  // 2. 登錄指令 (這就是您說找不到的地方)
   function loginSystem() {
     const user = document.getElementById('adminUser').value;
     const pass = document.getElementById('adminPass').value;
 
-    // --- 您可以在這裡修改預設的帳號密碼 ---
-    const correctUser = "trueloveshops@gmail.com"; 
-    const correctPass = "@buddha88"; 
-    // ------------------------------------
-
-    if (user === correctUser && pass === correctPass) {
-      alert("驗證成功！正在前往後台管理系統...");
-      // 成功後看您要跳轉到哪個頁面，例如：
-      // window.location.href = "admin_dashboard.html";
+    // 檢查帳密
+    if (user === "admin" && pass === "888888") {
+      alert("驗證成功！點擊確定前往後台。");
+      
+      // 嘗試跳轉，如果您的檔名不叫 admin.html，請修改下面這一行
+      window.location.href = "admin.html"; 
+      
     } else {
-      alert("帳號或密碼錯誤，請重新確認！");
+      alert("帳號或密碼錯誤！");
     }
   }
 </script>
