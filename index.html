@@ -1597,7 +1597,7 @@ window.addEventListener('load', () => {
 </div>
 
 <script>
-  // 1. 確保按鈕能打開這個視窗
+  // 1. 自動接通右上角的按鈕
   (function() {
     function setup() {
       const btn = document.getElementById('adminBtn');
@@ -1610,16 +1610,16 @@ window.addEventListener('load', () => {
   function showAdmin() { document.getElementById('adminOverlay').style.display = 'flex'; }
   function hideAdmin() { document.getElementById('adminOverlay').style.display = 'none'; }
 
-  // 2. 登錄指令 (這就是您說找不到的地方)
+  // 2. 這是最重要的登錄邏輯：密碼對了就「直接變身」
   function loginSystem() {
     const user = document.getElementById('adminUser').value;
     const pass = document.getElementById('adminPass').value;
 
-    // 檢查帳密
     if (user === "trueloveshops@gmail.com" && pass === "@buddha88") {
-      alert("驗證成功！點擊確定前往後台。");
+      alert("驗證成功！即將進入您原本的管理後台...");
       
-      // 嘗試跳轉，如果您的檔名不叫 admin.html，請修改下面這一行
+      // 【重點在這裡】
+      // 請將裡面的 "admin.html" 改成您原本那個「有很多欄位」的檔案名稱
       window.location.href = "admin.html"; 
       
     } else {
