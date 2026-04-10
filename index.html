@@ -1611,21 +1611,27 @@ window.addEventListener('load', () => {
   function hideAdmin() { document.getElementById('adminOverlay').style.display = 'none'; }
 
   // 2. 這是最重要的登錄邏輯：密碼對了就「直接變身」
-  function loginSystem() {
+ function loginSystem() {
     const user = document.getElementById('adminUser').value;
     const pass = document.getElementById('adminPass').value;
 
-    if (user === "trueloveshops@gmail.com" && pass === "@buddha88") {
-      alert("驗證成功！即將進入您原本的管理後台...");
+    if (user === "admin" && pass === "888888") {
+      alert("驗證成功！即將直接進入管理系統...");
       
-      // 【重點在這裡】
-      // 請將裡面的 "admin.html" 改成您原本那個「有很多欄位」的檔案名稱
-      window.location.href = "admin.html"; 
+      // 【重點修改：請勿跳轉到舊的登入頁面】
+      // 請將引號內的文字改成「登入後」真正有很多欄位、功能強大的那個檔案名稱
+      window.location.href = "如果您有準備好真正的後台.html"; 
+      
+      /* ⚠️ 備註：
+       如果您的「甘露法語後台管理」需要特定的登錄機制才能看到欄位，
+       那您就必須在我們設計的 adminOverlay 裡面整合那些欄位，
+       而不是跳轉到一個需要再次驗證的頁面。
+      */
       
     } else {
       alert("帳號或密碼錯誤！");
     }
-  }
+  } 
 </script>
 </body>
 </html>
