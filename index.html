@@ -1587,33 +1587,45 @@ window.addEventListener('load', () => {
 
     <div>
       <h2 style="font-size:17px; margin-bottom:15px; opacity:0.9;">後台管理登錄</h2>
-      <input type="text" placeholder="管理員帳號" style="width:100%; padding:13px; margin-bottom:12px; border-radius:12px; border:1px solid rgba(0,0,0,0.08); background:rgba(255,255,255,0.5); outline:none;">
-      <input type="password" placeholder="登錄密碼" style="width:100%; padding:13px; margin-bottom:12px; border-radius:12px; border:1px solid rgba(0,0,0,0.08); background:rgba(255,255,255,0.5); outline:none;">
-      <button style="width:100%; padding:13px; border:none; border-radius:12px; background:#66a1ff; color:#fff; font-weight:bold; cursor:pointer; font-size:16px;">進入管理系統</button>
+      <input type="text" id="adminUser" placeholder="管理員帳號" style="width:100%; padding:13px; margin-bottom:12px; border-radius:12px; border:1px solid rgba(0,0,0,0.08); background:rgba(255,255,255,0.5); outline:none;">
+      <input type="password" id="adminPass" placeholder="登錄密碼" style="width:100%; padding:13px; margin-bottom:12px; border-radius:12px; border:1px solid rgba(0,0,0,0.08); background:rgba(255,255,255,0.5); outline:none;">
+      <button onclick="loginSystem()" style="width:100%; padding:13px; border:none; border-radius:12px; background:#66a1ff; color:#fff; font-weight:bold; cursor:pointer; font-size:16px;">進入管理系統</button>
       <div style="margin-top:20px; font-size:13px; opacity:0.6; cursor:pointer; text-decoration:underline;" onclick="hideAdmin()">返回播放器首頁</div>
     </div>
   </div>
 </div>
 
 <script>
-  // 這段腳本會自動尋找您的 adminBtn 並啟用它
+  // 1. 自動接通按鈕
   (function() {
     function setupAdmin() {
       const btn = document.getElementById('adminBtn');
-      if (btn) {
-        btn.onclick = showAdmin;
-      }
+      if (btn) btn.onclick = showAdmin;
     }
-    // 確保頁面讀取完畢後執行
     if (document.readyState === 'complete') setupAdmin();
     else window.addEventListener('load', setupAdmin);
   })();
 
-  function showAdmin() {
-    document.getElementById('adminOverlay').style.display = 'flex';
-  }
-  function hideAdmin() {
-    document.getElementById('adminOverlay').style.display = 'none';
+  function showAdmin() { document.getElementById('adminOverlay').style.display = 'flex'; }
+  function hideAdmin() { document.getElementById('adminOverlay').style.display = 'none'; }
+
+  // 2. 登錄邏輯：檢查帳號密碼
+  function loginSystem() {
+    const user = document.getElementById('adminUser').value;
+    const pass = document.getElementById('adminPass').value;
+
+    // --- 您可以在這裡修改預設的帳號密碼 ---
+    const correctUser = "trueloveshops@gmail.com"; 
+    const correctPass = "@buddha88"; 
+    // ------------------------------------
+
+    if (user === correctUser && pass === correctPass) {
+      alert("驗證成功！正在前往後台管理系統...");
+      // 成功後看您要跳轉到哪個頁面，例如：
+      // window.location.href = "admin_dashboard.html";
+    } else {
+      alert("帳號或密碼錯誤，請重新確認！");
+    }
   }
 </script>
 </body>
