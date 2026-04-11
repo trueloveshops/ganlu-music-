@@ -238,10 +238,10 @@
     const db = getFirestore(app);
 
     // 只需要保留這一段，請確保括號完全對齊
-    onAuthStateChanged(auth, (user) => {
+   onAuthStateChanged(auth, async (user) => {
       if (user && user.email === "trueloveshops@gmail.com") {
         document.body.style.display = "block";
-        loadItems(); 
+        await loadItems(); 
       } else {
         window.location.href = 'index.html';
       }
@@ -383,21 +383,6 @@
     });
     logoutBtn.addEventListener('click', async () => { await signOut(auth); window.location.href = 'index.html'; });
 
-   onAuthStateChanged(auth, async (user) => {
-  if (user && (user.email || '').toLowerCase() === "trueloveshops@gmail.com") {
-    // 1. 顯示所有面板
-    document.body.style.display = "block"; // 確保這行有在裡面
-    if (typeof loginCard !== 'undefined') loginCard.classList.add('hidden');
-    adminPanel.classList.remove('hidden');
-    listPanel.classList.remove('hidden');
-
-    // 2. 執行載入動作
-    await loadItems();         // <--- 補上這行，抓取 2000 筆資料
-    await loadThemeSettings(); // 載入主題設定
-  } else {
-    window.location.href = 'index.html';
-  }
-});
 
     function clearForm() {
       docId.value = '';
