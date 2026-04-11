@@ -238,7 +238,7 @@
     onAuthStateChanged(auth, (user) => {
       if (user && user.email === "trueloveshops@gmail.com") {
         document.body.style.display = "block";
-        
+        loadItems(); // <--- 補上這一行，資料才會跑出來
       } else {
         window.location.href = 'index.html';
       }
@@ -813,12 +813,12 @@
         });
       });
 
-      document.querySelectorAll('[data-del]').forEach(btn => {
+     document.querySelectorAll('[data-del]').forEach(btn => {
         btn.addEventListener('click', async () => {
           const id = btn.dataset.del;
           if (!confirm('確定要刪除這筆資料嗎？')) return;
           await deleteDoc(doc(db, 'phrases', id));
-          await 
+          await loadItems(); // <--- 補上這行，刪除後才會重新整理列表
         });
       });
     }
