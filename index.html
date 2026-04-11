@@ -492,7 +492,7 @@ html, body {
         <path d="M12 20c-6-2-7-7-4-12 5 2 7 5 4 12Z" fill="none" stroke="rgba(245,251,251,.8)" stroke-width="1.4"/>
       </svg>
     </div>
-    <div class="quote-text" id="quoteText">載入中…</div>
+    <div class="quote-text" id="quoteText">載入今日法語…</div>
     <a id="sourceLink" class="source disabled" href="#" target="_blank" rel="noopener noreferrer"></a>
     <div class="quote-nav" aria-label="法語切換">
       <button id="prevQuoteSmall" class="quote-nav-btn" type="button" aria-label="上一句">‹</button>
@@ -773,7 +773,7 @@ bgBtn.addEventListener('pointerleave', () => {
 });
 
 document.getElementById('tvBtn').onclick = () => window.open('https://suprememastertv.com/ch1/max/', '_blank');
-document.getElementById('adminBtn').onclick = () => window.open('admin.html', '_blank');
+document.getElementById('adminBtn').onclick = showAdmin;
 
 
 const FIREBASE_SINGLE_SOURCE_CONFIG = {
@@ -1117,11 +1117,6 @@ function subscribeFirebaseSingleSource() {
   recordVisitIfNeeded(db);
 
   clearTimeout(firebaseFallbackTimer);
-  firebaseFallbackTimer = setTimeout(() => {
-    if (!firebaseQuoteResolved && !QUOTES.length) {
-      renderImmediateFallback();
-    }
-  }, FIREBASE_QUOTE_WAIT_MS);
 
   if (!db) {
     clearTimeout(firebaseFallbackTimer);
@@ -1734,7 +1729,8 @@ window.addEventListener('load', () => {
     try {
       await auth.signInWithEmailAndPassword(user, pass);
       hideAdmin();
-      window.open('admin.html', '_blank');
+      sessionStorage.setItem('ganlu_admin_handoff', '1');
+      window.location.assign('admin.html');
     } catch (err) {
       console.warn('管理後台登入失敗：', err);
       alert("登入失敗，請確認 Firebase 管理員帳號密碼是否一致。");
