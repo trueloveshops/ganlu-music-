@@ -1725,29 +1725,20 @@ window.addEventListener('load', () => {
       return;
     }
 
-    const auth = initFirebaseAuthSingleSource();
-    if (!auth) {
-      alert("Firebase Auth 初始化失敗，無法登入管理後台。");
+    try {
+      localStorage.setItem('ganlu_admin_bridge', JSON.stringify({
+        email: user,
+        password: pass,
+        ts: Date.now()
+      }));
+    } catch (err) {
+      console.warn('無法暫存登入交接資料：', err);
+      alert('無法建立登入交接資料，請確認瀏覽器未封鎖本機儲存。');
       return;
     }
 
-    try {
-      await auth.signInWithEmailAndPassword(user, pass);
-      try {
-        localStorage.setItem('ganlu_admin_bridge', JSON.stringify({
-          email: user,
-          password: pass,
-          ts: Date.now()
-        }));
-      } catch (storageErr) {
-        console.warn('無法暫存管理登入交接資料：', storageErr);
-      }
-      hideAdmin();
-      window.location.href = 'admin.html';
-    } catch (err) {
-      console.warn('管理後台登入失敗：', err);
-      alert("登入失敗，請確認 Firebase 管理員帳號密碼是否一致。");
-    }
+    hideAdmin();
+    window.location.href = 'admin.html';
  }
 </script>
 </body>

@@ -46,7 +46,15 @@
   <div class="wrap">
     <h1>甘露法語後台管理</h1>
 
-        <div class="card hidden" id="adminPanel">
+    <div class="card" id="loginCard">
+      <h2>管理員登入</h2>
+      <input id="email" type="email" placeholder="Email" />
+      <input id="password" type="password" placeholder="Password" />
+      <button class="btn-primary" id="loginBtn" type="button">登入</button>
+      <p id="loginMsg"></p>
+    </div>
+
+    <div class="card hidden" id="adminPanel">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
         <h2>新增 / 編輯法語</h2>
         <button class="btn-gray" id="logoutBtn" type="button">登出</button>
@@ -229,6 +237,7 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
+    const loginCard = document.getElementById('loginCard');
     const adminPanel = document.getElementById('adminPanel');
     const importPanel = document.getElementById('importPanel');
     const themePanel = document.getElementById('themePanel');
@@ -290,52 +299,8 @@
     let parsedRows = [];
     let allItems = [];
     let bridgeLoginInProgress = false;
+    let bridgeAttempted = false;
     let adminDataLoaded = false;
-
-      async function tryBridgeLogin() {
-      let raw = null;
-      try {
-        raw = localStorage.getItem('ganlu_admin_bridge');
-      } catch (err) {
-        return false;
-      }
-      if (!raw) return false;
-
-      let payload = null;
-      try {
-        payload = JSON.parse(raw);
-      } catch (err) {
-        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
-        return false;
-      }
-
-      const emailValue = String(payload?.email || '').trim();
-      const passwordValue = String(payload?.password || '').trim();
-      const ts = Number(payload?.ts || 0);
-      const expired = !ts || Math.abs(Date.now() - ts) > 2 * 60 * 1000;
-      if (!emailValue || !passwordValue || expired) {
-        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
-        return false;
-      }
-
-      bridgeLoginInProgress = true;
-      loginBtn.disabled = true;
-      revealLoginCard('登入交接中…');
-      email.value = emailValue;
-      password.value = passwordValue;
-      try {
-        const cred = await signInWithEmailAndPassword(auth, emailValue, passwordValue);
-        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
-        return (cred.user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
-      } catch (err) {
-        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
-        revealLoginCard('自動登入失敗，請手動登入。');
-        return false;
-      } finally {
-        bridgeLoginInProgress = false;
-        loginBtn.disabled = false;
-      }
-    }
 
     function buildUrl(base, filename) {
       const value = (filename || '').trim();
@@ -380,8 +345,50 @@
       };
     }
 
+    async function tryBridgeLogin() {
+      if (bridgeAttempted) return false;
+      bridgeAttempted = true;
+      let raw = null;
+      try { raw = localStorage.getItem('ganlu_admin_bridge'); } catch (err) { raw = null; }
+      if (!raw) return false;
+
+      let payload = null;
+      try { payload = JSON.parse(raw); } catch (err) {
+        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
+        return false;
+      }
+
+      const emailValue = String(payload?.email || '').trim();
+      const passwordValue = String(payload?.password || '').trim();
+      const ts = Number(payload?.ts || 0);
+      const expired = !ts || Math.abs(Date.now() - ts) > 2 * 60 * 1000;
+      if (!emailValue || !passwordValue || expired) {
+        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
+        return false;
+      }
+
+      email.value = emailValue;
+      password.value = passwordValue;
+      bridgeLoginInProgress = true;
+      loginMsg.textContent = '登入交接中…';
+      loginBtn.disabled = true;
+      try {
+        const cred = await signInWithEmailAndPassword(auth, emailValue, passwordValue);
+        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
+        return (cred.user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      } catch (err) {
+        console.warn('登入交接失敗：', err);
+        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
+        loginMsg.textContent = '';
+        return false;
+      } finally {
+        bridgeLoginInProgress = false;
+        loginBtn.disabled = false;
+      }
+    }
+
     async function loginNow() {
-      if (isLoggingIn || bridgeLoginInProgress) return;
+      if (isLoggingIn) return;
       isLoggingIn = true;
       loginMsg.textContent = '登入中…';
       loginBtn.disabled = true;
@@ -414,28 +421,39 @@
       await signOut(auth);
       window.location.href = 'index.html';
     });
-
     onAuthStateChanged(auth, async (user) => {
-  if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-    adminPanel.classList.remove('hidden');
-    importPanel.classList.remove('hidden');
-    themePanel.classList.remove('hidden');
-    exportPanel.classList.remove('hidden');
-    listPanel.classList.remove('hidden');
-
-    if (!adminDataLoaded) {
-      adminDataLoaded = true;
-      await loadItems();
-      await loadThemeSettings();
-    }
-  } else if (!bridgeLoginInProgress) {
-    adminDataLoaded = false;
-    alert('請先從首頁登入');
-    window.location.href = 'index.html';
-  }
-});
-
-    tryBridgeLogin();
+      if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        loginCard.classList.add('hidden');
+        adminPanel.classList.remove('hidden');
+        importPanel.classList.remove('hidden');
+        themePanel.classList.remove('hidden');
+        exportPanel.classList.remove('hidden');
+        listPanel.classList.remove('hidden');
+        loginMsg.textContent = '';
+        if (!adminDataLoaded) {
+          adminDataLoaded = true;
+          await loadItems();
+          await loadThemeSettings();
+        }
+      } else {
+        adminDataLoaded = false;
+        adminPanel.classList.add('hidden');
+        importPanel.classList.add('hidden');
+        themePanel.classList.add('hidden');
+        exportPanel.classList.add('hidden');
+        listPanel.classList.add('hidden');
+        loginCard.classList.remove('hidden');
+        if (!bridgeLoginInProgress && !bridgeAttempted) {
+          loginMsg.textContent = '驗證登入狀態中…';
+          const ok = await tryBridgeLogin();
+          if (!ok && !auth.currentUser) {
+            loginMsg.textContent = '';
+          }
+        } else if (!bridgeLoginInProgress && !auth.currentUser) {
+          loginMsg.textContent = '';
+        }
+      }
+    });
 
     function clearForm() {
       docId.value = '';
