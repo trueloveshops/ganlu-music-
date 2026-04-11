@@ -802,15 +802,15 @@
         });
       });
 
-     document.querySelectorAll('[data-del]').forEach(btn => {
+    document.querySelectorAll('[data-del]').forEach(btn => {
         btn.addEventListener('click', async () => {
           const id = btn.dataset.del;
           if (!confirm('確定要刪除這筆資料嗎？')) return;
           await deleteDoc(doc(db, 'phrases', id));
-          await loadItems(); // <--- 補上這行，刪除後才會重新整理列表
+          await loadItems(); 
         });
       });
-    }
+  
 
     function csvEscape(str) {
       if (str.includes('"') || str.includes(',') || str.includes('\n')) {
