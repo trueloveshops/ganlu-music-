@@ -773,7 +773,7 @@ bgBtn.addEventListener('pointerleave', () => {
 });
 
 document.getElementById('tvBtn').onclick = () => window.open('https://suprememastertv.com/ch1/max/', '_blank');
-document.getElementById('adminBtn').onclick = () => showAdmin();
+document.getElementById('adminBtn').onclick = () => window.open('admin.html', '_blank');
 
 
 const FIREBASE_SINGLE_SOURCE_CONFIG = {
@@ -1725,16 +1725,9 @@ window.addEventListener('load', () => {
       return;
     }
 
-    try {
-      const handoff = JSON.stringify({ email: user, password: pass, ts: Date.now() });
-      try { sessionStorage.setItem('ganlu_admin_handoff', handoff); } catch (e) {}
-      try { localStorage.setItem('ganlu_admin_handoff', handoff); } catch (e) {}
-    } catch (e) {
-      console.warn('登入交接資料寫入失敗：', e);
-    }
-
     hideAdmin();
-    window.location.href = 'admin.html';
+    const target = 'admin.html?auto=1&email=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass);
+    window.location.href = target;
  }
 </script>
 </body>

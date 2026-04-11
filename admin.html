@@ -45,9 +45,8 @@
 <body>
   <div class="wrap">
     <h1>甘露法語後台管理</h1>
-    <p id="authStatus" style="margin:0 0 14px; color:#666;">驗證登入狀態中…</p>
 
-    <div class="card hidden" id="loginCard">
+    <div class="card" id="loginCard">
       <h2>管理員登入</h2>
       <input id="email" type="email" placeholder="Email" />
       <input id="password" type="password" placeholder="Password" />
@@ -250,7 +249,6 @@
     const loginBtn = document.getElementById('loginBtn');
     const logoutBtn = document.getElementById('logoutBtn');
     const loginMsg = document.getElementById('loginMsg');
-    const authStatus = document.getElementById('authStatus');
 
     const docId = document.getElementById('docId');
     const textEl = document.getElementById('text');
@@ -300,6 +298,22 @@
     let isLoggingIn = false;
     let parsedRows = [];
     let allItems = [];
+    let isAutoLoggingIn = false;
+
+    function getAutoLoginParams() {
+      const params = new URLSearchParams(window.location.search || '');
+      return {
+        auto: params.get('auto') === '1',
+        email: (params.get('email') || '').trim(),
+        password: (params.get('password') || '').trim()
+      };
+    }
+
+    function cleanAdminUrl() {
+      if (window.location.search) {
+        history.replaceState({}, document.title, 'admin.html');
+      }
+    }
 
     function buildUrl(base, filename) {
       const value = (filename || '').trim();
@@ -344,46 +358,7 @@
       };
     }
 
-    
-    function setAuthStatus(message) {
-      if (authStatus) authStatus.textContent = message || '';
-    }
-    function readAdminHandoff() {
-      let raw = null;
-      try { raw = sessionStorage.getItem('ganlu_admin_handoff'); } catch (e) {}
-      if (!raw) {
-        try { raw = localStorage.getItem('ganlu_admin_handoff'); } catch (e) {}
-      }
-      if (!raw) return null;
-      try {
-        const parsed = JSON.parse(raw);
-        if (!parsed || !parsed.email || !parsed.password) return null;
-        if (Date.now() - Number(parsed.ts || 0) > 5 * 60 * 1000) return null;
-        return parsed;
-      } catch (e) {
-        return null;
-      }
-    }
-    function clearAdminHandoff() {
-      try { sessionStorage.removeItem('ganlu_admin_handoff'); } catch (e) {}
-      try { localStorage.removeItem('ganlu_admin_handoff'); } catch (e) {}
-    }
-    async function autoLoginFromHandoff() {
-      const handoff = readAdminHandoff();
-      if (!handoff) return false;
-      setAuthStatus('正在登入管理後台…');
-      try {
-        await signInWithEmailAndPassword(auth, handoff.email, handoff.password);
-        clearAdminHandoff();
-        return true;
-      } catch (err) {
-        console.warn('自動登入失敗：', err);
-        clearAdminHandoff();
-        return false;
-      }
-    }
-
-async function loginNow() {
+    async function loginNow() {
       if (isLoggingIn) return;
       isLoggingIn = true;
       loginMsg.textContent = '登入中…';
@@ -412,11 +387,18 @@ async function loginNow() {
         }
       });
     });
-    logoutBtn.addEventListener('click', async () => { clearAdminHandoff(); await signOut(auth); window.location.href = 'index.html'; });
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await signOut(auth);
+      } finally {
+        window.location.href = 'index.html';
+      }
+    });
 
     onAuthStateChanged(auth, async (user) => {
       if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-        setAuthStatus('');
+        cleanAdminUrl();
+        isAutoLoggingIn = false;
         loginCard.classList.add('hidden');
         adminPanel.classList.remove('hidden');
         importPanel.classList.remove('hidden');
@@ -425,24 +407,32 @@ async function loginNow() {
         listPanel.classList.remove('hidden');
         await loadItems();
         await loadThemeSettings();
-        return;
+      } else {
+        if (isAutoLoggingIn) return;
+        loginCard.classList.remove('hidden');
+        adminPanel.classList.add('hidden');
+        importPanel.classList.add('hidden');
+        themePanel.classList.add('hidden');
+        exportPanel.classList.add('hidden');
+        listPanel.classList.add('hidden');
       }
-
-      loginCard.classList.add('hidden');
-      adminPanel.classList.add('hidden');
-      importPanel.classList.add('hidden');
-      themePanel.classList.add('hidden');
-      exportPanel.classList.add('hidden');
-      listPanel.classList.add('hidden');
-
-      const ok = await autoLoginFromHandoff();
-      if (ok) return;
-
-      setAuthStatus('未取得首頁登入資訊，正在返回首頁…');
-      setTimeout(() => {
-        window.location.href = 'index.html';
-      }, 400);
     });
+
+    const autoLogin = getAutoLoginParams();
+    if (autoLogin.auto && autoLogin.email && autoLogin.password) {
+      isAutoLoggingIn = true;
+      loginCard.classList.add('hidden');
+      loginMsg.textContent = '';
+      signInWithEmailAndPassword(auth, autoLogin.email, autoLogin.password)
+        .catch((err) => {
+          isAutoLoggingIn = false;
+          cleanAdminUrl();
+          loginCard.classList.remove('hidden');
+          loginMsg.textContent = '自動登入失敗：' + err.message;
+        });
+    } else {
+      cleanAdminUrl();
+    }
 
     function clearForm() {
       docId.value = '';
