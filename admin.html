@@ -1,646 +1,833 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>甘露法語後台管理</title>
-<style>
-body{font-family:Arial,sans-serif;background:#f6f6f6;margin:0;padding:20px;color:#222}
-.wrap{max-width:1100px;margin:auto}.card{background:#fff;border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.06)}
-input,textarea,select{width:100%;box-sizing:border-box;padding:10px;margin:8px 0 14px;border:1px solid #ccc;border-radius:10px;font-size:16px}
-textarea{min-height:110px;resize:vertical}button{border:0;border-radius:10px;padding:10px 16px;cursor:pointer;margin-right:8px;margin-bottom:8px}
-button[disabled]{opacity:.6;cursor:not-allowed}.btn-primary{background:#2d6a4f;color:#fff}.btn-blue{background:#2b6cb0;color:#fff}.btn-gray{background:#ddd}.btn-danger{background:#b00020;color:#fff}.btn-purple{background:#7c3aed;color:#fff}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}.hidden{display:none}
-.item{border:1px solid #e4e4e4;border-radius:12px;padding:14px;margin-bottom:12px;background:#fafafa}.meta{font-size:14px;color:#666;margin-bottom:10px;line-height:1.6}
-.help{font-size:13px;color:#666;line-height:1.5}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.toolbar input{margin:0}
-.preview-box{max-height:260px;overflow:auto;border:1px solid #ddd;border-radius:10px;padding:10px;background:#fafafa}.preview-row{padding:8px 0;border-bottom:1px solid #e8e8e8}.preview-row:last-child{border-bottom:none}
-@media(max-width:860px){.row,.row3{grid-template-columns:1fr}}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>甘露法語後台管理（最終穩定版）</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 20px; color: #222; }
+    .wrap { max-width: 1120px; margin: auto; }
+    .card { background: #fff; border-radius: 14px; padding: 18px; margin-bottom: 18px; box-shadow: 0 4px 18px rgba(0,0,0,0.06); }
+    h1, h2, h3 { margin-top: 0; }
+    input, textarea, select { width: 100%; padding: 10px; margin: 8px 0 14px; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
+    textarea { min-height: 110px; resize: vertical; }
+    button { border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer; margin-right: 8px; margin-bottom: 8px; }
+    button[disabled] { opacity: .55; cursor: not-allowed; }
+    .btn-primary { background: #2d6a4f; color: white; }
+    .btn-danger { background: #b00020; color: white; }
+    .btn-gray { background: #ddd; color: #222; }
+    .btn-blue { background: #2b6cb0; color: white; }
+    .btn-purple { background: #7c3aed; color: white; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .item { border: 1px solid #e4e4e4; border-radius: 12px; padding: 14px; margin-bottom: 12px; background: #fafafa; }
+    .meta { font-size: 14px; color: #666; margin-bottom: 10px; line-height: 1.6; }
+    .hidden { display: none; }
+    .help { font-size: 13px; color: #666; margin-top: -8px; margin-bottom: 12px; line-height: 1.5; }
+    .small-link { word-break: break-all; font-size: 13px; }
+    .preview-box { max-height: 260px; overflow: auto; border: 1px solid #ddd; border-radius: 10px; padding: 10px; background: #fafafa; font-size: 14px; }
+    .preview-row { padding: 8px 0; border-bottom: 1px solid #e8e8e8; }
+    .preview-row:last-child { border-bottom: none; }
+    .status-ok { color: #2d6a4f; }
+    .status-warn { color: #b45309; }
+    .status-err { color: #b00020; }
+    code { background: #f1f1f1; padding: 2px 6px; border-radius: 6px; }
+    .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .toolbar input { margin: 0; }
+    .section-note { font-size: 13px; color:#555; line-height:1.6; margin-top:6px; }
+    label.inline { display:flex; align-items:center; gap:8px; width:auto; margin:0; }
+    label.inline input { width:auto; margin:0; }
+    @media (max-width: 860px) {
+      .row, .row-3 { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>甘露法語後台管理</h1>
+  <div class="wrap">
+    <h1>甘露法語後台管理</h1>
 
-  <div class="card" id="loginCard">
-    <h2>管理員登入</h2>
-    <input id="email" type="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
-    <button class="btn-primary" id="loginBtn" type="button">登入</button>
-    <p id="loginMsg"></p>
+    <div class="card hidden" id="loginCard">
+      <h2>管理員登入</h2>
+      <input id="email" type="email" placeholder="Email" />
+      <input id="password" type="password" placeholder="Password" />
+      <button class="btn-primary" id="loginBtn" type="button">登入</button>
+      <p id="loginMsg"></p>
+    </div>
+
+    <div class="card hidden" id="adminPanel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <h2>新增 / 編輯法語</h2>
+        <button class="btn-gray" id="logoutBtn" type="button">登出</button>
+      </div>
+
+      <input id="docId" type="hidden" />
+      <label>法語內容</label>
+      <textarea id="text" placeholder="輸入法語內容"></textarea>
+
+      <div class="row">
+        <div>
+          <label>日期 / 來源（可空）</label>
+          <input id="date" type="text" placeholder="例如：DVD745 或 1995.06.06" />
+        </div>
+        <div>
+          <label>超連結網址（可空）</label>
+          <input id="url" type="text" placeholder="例如：https://example.com" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>音檔檔名（可空）</label>
+          <input id="audioFile" type="text" placeholder="例如：0001.mp3" />
+          <div class="help">只填檔名即可，系統會自動組成完整網址。若你已經有完整網址，也可直接貼完整網址。</div>
+        </div>
+        <div>
+          <label>圖片檔名（可空）</label>
+          <input id="imageFile" type="text" placeholder="例如：0001.jpg" />
+          <div class="help">只填檔名即可，系統會自動組成完整網址。若你已經有完整網址，也可直接貼完整網址。</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>排序</label>
+          <input id="order" type="number" placeholder="1" />
+        </div>
+        <div>
+          <label>發布狀態</label>
+          <select id="published">
+            <option value="true">發布</option>
+            <option value="false">下架</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="saveBtn" type="button">儲存</button>
+      <button class="btn-gray" id="resetBtn" type="button">清空</button>
+      <p id="saveMsg"></p>
+    </div>
+
+    <div class="card hidden" id="importPanel">
+      <h2>批量匯入 CSV</h2>
+      <div class="help">CSV 欄位順序請用：<br><code>text,date,url,audioFile,imageFile,order,published</code></div>
+      <div class="help">範例：<br><code>願眾生離苦得樂,DVD745,https://example.com,0001.mp3,0001.jpg,1,true</code></div>
+
+      <input id="csvFile" type="file" accept=".csv,text/csv" />
+      <div class="toolbar">
+        <button class="btn-blue" id="previewBtn" type="button">預覽 CSV</button>
+        <button class="btn-primary" id="importBtn" type="button" disabled>開始匯入</button>
+        <button class="btn-gray" id="downloadTemplateBtn" type="button">下載模板</button>
+        <label class="inline"><input id="clearBeforeImport" type="checkbox" /> 匯入前先清空舊資料</label>
+      </div>
+
+      <p id="importMsg"></p>
+      <div id="previewBox" class="preview-box hidden"></div>
+    </div>
+
+    <div class="card hidden" id="themePanel">
+      <h2>外觀主題控制</h2>
+      <div class="section-note">這些設定會存進 Firebase。前台若有接上預覽頁或外觀設定讀取，就會套用。</div>
+
+      <div class="row-3">
+        <div>
+          <label>背景主題</label>
+          <select id="themeName">
+            <option value="default">預設</option>
+            <option value="zen">禪風詩意</option>
+            <option value="romance">浪漫戀愛</option>
+            <option value="energy">活力充沛</option>
+          </select>
+        </div>
+        <div>
+          <label>法語字體</label>
+          <select id="quoteFontFamily">
+            <option value="Noto Serif TC">Noto Serif TC</option>
+            <option value="Microsoft JhengHei">Microsoft JhengHei</option>
+            <option value="serif">serif</option>
+            <option value="sans-serif">sans-serif</option>
+          </select>
+        </div>
+        <div>
+          <label>標題字體</label>
+          <select id="titleFontFamily">
+            <option value="Noto Serif TC">Noto Serif TC</option>
+            <option value="Microsoft JhengHei">Microsoft JhengHei</option>
+            <option value="serif">serif</option>
+            <option value="sans-serif">sans-serif</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row-3">
+        <div>
+          <label>法語字級（px）</label>
+          <input id="quoteFontSize" type="number" min="12" max="40" step="1" placeholder="18" />
+        </div>
+        <div>
+          <label>卡片透明度（0~1）</label>
+          <input id="cardOpacity" type="number" min="0.05" max="1" step="0.01" placeholder="0.16" />
+        </div>
+        <div>
+          <label>預覽提示</label>
+          <input type="text" value="日期目前固定顯示" readonly />
+        </div>
+      </div>
+
+      <div class="row-3">
+        <div>
+          <label>法語文字顏色</label>
+          <input id="quoteTextColor" type="color" value="#eef7f6" />
+        </div>
+        <div>
+          <label>標題文字顏色</label>
+          <input id="titleTextColor" type="color" value="#eef7f6" />
+        </div>
+        <div>
+          <label>來源文字顏色</label>
+          <input id="sourceTextColor" type="color" value="#f6fcfc" />
+        </div>
+      </div>
+
+      <button class="btn-purple" id="saveThemeBtn" type="button">儲存外觀設定</button>
+      <button class="btn-gray" id="loadThemeBtn" type="button">重新讀取設定</button>
+      <p id="themeMsg"></p>
+    </div>
+
+    <div class="card hidden" id="exportPanel">
+      <h2>資料匯出</h2>
+      <div class="toolbar">
+        <button class="btn-primary" id="exportJsonBtn" type="button">匯出 JSON</button>
+        <button class="btn-blue" id="exportCsvBtn" type="button">匯出 CSV</button>
+        <button class="btn-gray" id="exportPublishedJsonBtn" type="button">匯出已發布 JSON</button>
+        <button class="btn-danger" id="clearAllBtn" type="button">清空全部資料</button>
+      </div>
+      <div class="section-note">前台仍使用 Firebase 即時更新。匯出檔案可作為備份，或之後有空再手動上傳到 GitHub。</div>
+      <p id="exportMsg"></p>
+    </div>
+
+    <div class="card hidden" id="listPanel">
+      <h2>法語列表</h2>
+      <div class="toolbar" style="margin-bottom:14px;">
+        <input id="searchInput" type="text" placeholder="搜尋法語、日期、網址、音檔、圖片…" />
+        <button class="btn-blue" id="runSearchBtn" type="button">搜尋</button>
+        <button class="btn-gray" id="clearSearchBtn" type="button">清除搜尋</button>
+      </div>
+      <div id="searchStatus" class="help"></div>
+      <div id="items"></div>
+    </div>
   </div>
 
-  <div class="card hidden" id="adminPanel">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-      <h2>新增 / 編輯法語</h2>
-      <button class="btn-gray" id="logoutBtn" type="button">登出</button>
-    </div>
-    <input id="docId" type="hidden">
-    <label>法語內容</label>
-    <textarea id="text" placeholder="輸入法語內容"></textarea>
-    <div class="row">
-      <div><label>日期 / 來源（可空）</label><input id="date" type="text" placeholder="例如：DVD745"></div>
-      <div><label>超連結網址（可空）</label><input id="url" type="text" placeholder="例如：https://example.com"></div>
-    </div>
-    <div class="row">
-      <div><label>音檔檔名（可空）</label><input id="audioFile" type="text" placeholder="例如：0001.mp3"><div class="help">只填檔名即可，系統會自動組成完整網址。</div></div>
-      <div><label>圖片檔名（可空）</label><input id="imageFile" type="text" placeholder="例如：0001.jpg"><div class="help">只填檔名即可，系統會自動組成完整網址。</div></div>
-    </div>
-    <div class="row">
-      <div><label>排序</label><input id="order" type="number" placeholder="1"></div>
-      <div><label>發布狀態</label><select id="published"><option value="true">發布</option><option value="false">下架</option></select></div>
-    </div>
-    <button class="btn-primary" id="saveBtn" type="button">儲存</button>
-    <button class="btn-gray" id="resetBtn" type="button">清空</button>
-    <div class="help">系統會自動寫入建立時間 createdAt，不需要手動填寫；首頁可用它優先顯示最新新增的法語。</div>
-    <p id="saveMsg"></p>
-  </div>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, getDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-  <div class="card hidden" id="importPanel">
-    <h2>批量匯入 CSV</h2>
-    <div class="help">CSV 欄位順序：text,date,url,audioFile,imageFile,order,published。匯入時系統會自動補上 createdAt，作為首頁最新法語排序依據。</div>
-    <input id="csvFile" type="file" accept=".csv,text/csv">
-    <div class="toolbar">
-      <button class="btn-blue" id="previewBtn" type="button">預覽 CSV</button>
-      <button class="btn-primary" id="importBtn" type="button" disabled>開始匯入</button>
-      <button class="btn-gray" id="downloadTemplateBtn" type="button">下載模板</button>
-      <label class="help" style="display:flex;align-items:center;gap:8px;"><input id="clearBeforeImport" type="checkbox" style="width:auto;margin:0;">匯入前先清空舊資料</label>
-    </div>
-    <p id="importMsg"></p>
-    <div id="previewBox" class="preview-box hidden"></div>
-  </div>
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyBoJ0byHJGwOHCkUmyZkx1jXLrctYYdzSM",
+      authDomain: "ganlu-music.firebaseapp.com",
+      projectId: "ganlu-music",
+      appId: "1:661017374980:web:904c57d0f61fb9b51ba051"
+    };
 
-  <div class="card hidden" id="themePanel">
-    <h2>外觀主題控制</h2>
-    <div class="row3">
-      <div><label>背景主題</label><select id="themeName"><option value="default">預設</option><option value="zen">禪風詩意</option><option value="romance">浪漫戀愛</option><option value="energy">活力充沛</option></select></div>
-      <div><label>法語字體</label><select id="quoteFontFamily"><option value="Noto Serif TC">Noto Serif TC</option><option value="Microsoft JhengHei">Microsoft JhengHei</option><option value="serif">serif</option><option value="sans-serif">sans-serif</option></select></div>
-      <div><label>標題字體</label><select id="titleFontFamily"><option value="Noto Serif TC">Noto Serif TC</option><option value="Microsoft JhengHei">Microsoft JhengHei</option><option value="serif">serif</option><option value="sans-serif">sans-serif</option></select></div>
-    </div>
-    <div class="row3">
-      <div><label>法語字級（px）</label><input id="quoteFontSize" type="number" min="12" max="40" step="1"></div>
-      <div><label>卡片透明度（0~1）</label><input id="cardOpacity" type="number" min="0.05" max="1" step="0.01"></div>
-      <div><label>來源文字顏色</label><input id="sourceTextColor" type="color" value="#f6fcfc"></div>
-    </div>
-    <div class="row3">
-      <div><label>法語文字顏色</label><input id="quoteTextColor" type="color" value="#eef7f6"></div>
-      <div><label>標題文字顏色</label><input id="titleTextColor" type="color" value="#eef7f6"></div>
-      <div><label>預覽提示</label><input value="日期目前固定顯示" readonly></div>
-    </div>
-    <button class="btn-purple" id="saveThemeBtn" type="button">儲存外觀設定</button>
-    <button class="btn-gray" id="loadThemeBtn" type="button">重新讀取設定</button>
-    <p id="themeMsg"></p>
-  </div>
+    const ADMIN_EMAIL = "trueloveshops@gmail.com";
+    const AUDIO_BASE = "https://trueloveshops.github.io/ganlu-music-/music/";
+    const IMAGE_BASE = "https://trueloveshops.github.io/ganlu-music-/images/";
 
-  <div class="card hidden" id="exportPanel">
-    <h2>資料匯出</h2>
-    <div class="toolbar">
-      <button class="btn-primary" id="exportJsonBtn" type="button">匯出 JSON</button>
-      <button class="btn-blue" id="exportCsvBtn" type="button">匯出 CSV</button>
-      <button class="btn-gray" id="exportPublishedJsonBtn" type="button">匯出已發布 JSON</button>
-      <button class="btn-purple" id="publishAllBtn" type="button">一鍵全部上架</button>
-      <button class="btn-blue" id="fixOrderBtn" type="button">自動補排序</button>
-      <button class="btn-danger" id="clearAllBtn" type="button">清空全部資料</button>
-    </div>
-    <p id="exportMsg"></p>
-  </div>
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-  <div class="card hidden" id="visitStatsPanel">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-      <h2>網站使用統計</h2>
-      <button class="btn-blue" id="refreshStatsBtn" type="button">重新整理人數</button>
-    </div>
-    <div class="row3">
-      <div class="item"><div class="meta">今日使用人數</div><div id="visitTodayCount" style="font-size:28px;font-weight:700;">-</div></div>
-      <div class="item"><div class="meta">累計使用次數</div><div id="visitTotalCount" style="font-size:28px;font-weight:700;">-</div></div>
-      <div class="item"><div class="meta">最近更新</div><div id="visitUpdatedAt" style="font-size:18px;font-weight:600;">-</div></div>
-    </div>
-    <div class="help">統計方式：同一裝置同一天只計 1 次，避免短時間重複刷新被重複計算。</div>
-    <div id="visitRecentList" class="help" style="margin-top:10px;"></div>
-  </div>
+    const loginCard = document.getElementById('loginCard');
+    const adminPanel = document.getElementById('adminPanel');
+    const importPanel = document.getElementById('importPanel');
+    const themePanel = document.getElementById('themePanel');
+    const exportPanel = document.getElementById('exportPanel');
+    const listPanel = document.getElementById('listPanel');
 
-  <div class="card hidden" id="listPanel">
-    <h2>法語列表</h2>
-    <div class="toolbar" style="margin-bottom:14px;">
-      <input id="searchInput" type="text" placeholder="搜尋法語、日期、網址、音檔、圖片…">
-      <button class="btn-blue" id="runSearchBtn" type="button">搜尋</button>
-      <button class="btn-gray" id="clearSearchBtn" type="button">清除搜尋</button>
-    </div>
-    <div id="searchStatus" class="help"></div>
-    <div id="items"></div>
-  </div>
-</div>
+    const email = document.getElementById('email');
+    const password = document.getElementById('password');
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const loginMsg = document.getElementById('loginMsg');
 
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-<script>
-const firebaseConfig = {apiKey:"AIzaSyBoJ0byHJGwOHCkUmyZkx1jXLrctYYdzSM",authDomain:"ganlu-music.firebaseapp.com",projectId:"ganlu-music",appId:"1:661017374980:web:904c57d0f61fb9b51ba051"};
-const ADMIN_EMAIL = "trueloveshops@gmail.com";
-const AUDIO_BASE = "https://trueloveshops.github.io/ganlu-music-/music/";
-const IMAGE_BASE = "https://trueloveshops.github.io/ganlu-music-/images/";
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-const $ = (id)=>document.getElementById(id);
-let allItems = [], parsedRows = [], isSaving = false, isLoggingIn = false;
+    const docId = document.getElementById('docId');
+    const textEl = document.getElementById('text');
+    const dateEl = document.getElementById('date');
+    const urlEl = document.getElementById('url');
+    const audioFile = document.getElementById('audioFile');
+    const imageFile = document.getElementById('imageFile');
+    const orderEl = document.getElementById('order');
+    const published = document.getElementById('published');
+    const saveBtn = document.getElementById('saveBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const saveMsg = document.getElementById('saveMsg');
 
-const VISIT_STATS_COLLECTION = 'site_visits_daily';
+    const csvFile = document.getElementById('csvFile');
+    const previewBtn = document.getElementById('previewBtn');
+    const importBtn = document.getElementById('importBtn');
+    const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+    const clearBeforeImport = document.getElementById('clearBeforeImport');
+    const importMsg = document.getElementById('importMsg');
+    const previewBox = document.getElementById('previewBox');
 
-function getTaipeiNow(){
-  try{
-    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
-  }catch(err){
-    return new Date();
-  }
-}
-function getTaipeiDateId(){
-  const now = getTaipeiNow();
-  const y = now.getFullYear();
-  const m = String(now.getMonth()+1).padStart(2,'0');
-  const d = String(now.getDate()).padStart(2,'0');
-  return `${y}-${m}-${d}`;
-}
-function formatTs(ts){
-  try{
-    if(!ts) return '—';
-    if(typeof ts.toDate === 'function') return ts.toDate().toLocaleString('zh-TW');
-    const d = new Date(ts);
-    return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('zh-TW');
-  }catch(err){
-    return '—';
-  }
-}
-async function loadVisitStats(){
-  $('visitTodayCount').textContent='讀取中…';
-  $('visitTotalCount').textContent='讀取中…';
-  $('visitUpdatedAt').textContent='—';
-  $('visitRecentList').textContent='';
+    const themeName = document.getElementById('themeName');
+    const quoteFontFamily = document.getElementById('quoteFontFamily');
+    const titleFontFamily = document.getElementById('titleFontFamily');
+    const quoteFontSize = document.getElementById('quoteFontSize');
+    const cardOpacity = document.getElementById('cardOpacity');
+    const quoteTextColor = document.getElementById('quoteTextColor');
+    const titleTextColor = document.getElementById('titleTextColor');
+    const sourceTextColor = document.getElementById('sourceTextColor');
+    const saveThemeBtn = document.getElementById('saveThemeBtn');
+    const loadThemeBtn = document.getElementById('loadThemeBtn');
+    const themeMsg = document.getElementById('themeMsg');
 
-  const todayId = getTaipeiDateId();
-  const snap = await db.collection(VISIT_STATS_COLLECTION).get();
+    const exportJsonBtn = document.getElementById('exportJsonBtn');
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    const exportPublishedJsonBtn = document.getElementById('exportPublishedJsonBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const exportMsg = document.getElementById('exportMsg');
 
-  let total = 0;
-  let today = 0;
-  let latestUpdatedAt = null;
-  const rows = [];
+    const searchInput = document.getElementById('searchInput');
+    const runSearchBtn = document.getElementById('runSearchBtn');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const searchStatus = document.getElementById('searchStatus');
+    const items = document.getElementById('items');
 
-  snap.forEach(doc => {
-    const data = doc.data() || {};
-    const count = Number(data.count || 0);
-    total += count;
-    if (doc.id === todayId) today = count;
+    let isSaving = false;
+    let isLoggingIn = false;
+    let parsedRows = [];
+    let allItems = [];
 
-    const updatedAt = data.updatedAt || null;
-    if (updatedAt && (!latestUpdatedAt || (updatedAt.seconds || 0) > (latestUpdatedAt.seconds || 0))) {
-      latestUpdatedAt = updatedAt;
+    function buildUrl(base, filename) {
+      const value = (filename || '').trim();
+      if (!value) return '';
+      if (/^https?:\\/\\//i.test(value)) return value;
+      return base + encodeURIComponent(value).replace(/%2F/g, '/');
+    }
+    function getTitleFromText(value) {
+      const t = (value || '').trim();
+      return t ? t.slice(0, 20) : '未命名';
+    }
+    function hashString(str) {
+      let hash = 5381;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) + hash) + str.charCodeAt(i);
+        hash = hash >>> 0;
+      }
+      return 'p_' + hash.toString(16);
+    }
+    function buildDeterministicId(payload) {
+      const base = [payload.text || '', payload.date || '', payload.url || '', payload.audioFile || '', payload.imageFile || '', String(payload.order ?? ''), String(payload.published ?? '')].join('||');
+      return hashString(base);
+    }
+    function normalizePublished(value) {
+      const v = String(value || '').trim().toLowerCase();
+      return v === 'true' || v === '1' || v === 'yes' || v === 'y';
+    }
+    function payloadFromFields(obj) {
+      const textValue = (obj.text || '').trim();
+      return {
+        title: getTitleFromText(textValue),
+        text: textValue,
+        date: (obj.date || '').trim(),
+        url: (obj.url || '').trim(),
+        audioFile: (obj.audioFile || '').trim(),
+        imageFile: (obj.imageFile || '').trim(),
+        audioUrl: buildUrl(AUDIO_BASE, obj.audioFile || ''),
+        imageUrl: buildUrl(IMAGE_BASE, obj.imageFile || ''),
+        order: Number(obj.order || 0),
+        published: typeof obj.published === 'boolean' ? obj.published : normalizePublished(obj.published),
+        updatedAt: serverTimestamp()
+      };
     }
 
-    rows.push({
-      id: doc.id,
-      count,
-      updatedAt
-    });
-  });
-
-  rows.sort((a,b)=> String(b.id).localeCompare(String(a.id)));
-  const recent = rows.slice(0,7).map(r => `${r.id}：${r.count} 人`).join('　｜　');
-
-  $('visitTodayCount').textContent = String(today);
-  $('visitTotalCount').textContent = String(total);
-  $('visitUpdatedAt').textContent = formatTs(latestUpdatedAt);
-  $('visitRecentList').textContent = recent ? `最近 7 天：${recent}` : '目前還沒有使用紀錄。';
-}
-
-function buildUrl(base, filename){filename=String(filename||'').trim(); if(!filename) return ''; if(/^https?:\/\//i.test(filename)) return filename; return base + encodeURIComponent(filename).replace(/%2F/g,'/');}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
-function csvEsc(s){s=String(s||''); return (s.includes('"')||s.includes(',')||s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;}
-function titleFromText(v){v=String(v||'').trim(); return v ? v.slice(0,20) : '未命名';}
-function hashString(str){let h=5381; for(let i=0;i<str.length;i++){h=((h<<5)+h)+str.charCodeAt(i); h=h>>>0;} return 'p_'+h.toString(16);}
-function buildId(payload){return hashString([payload.text||'',payload.date||'',payload.url||'',payload.audioFile||'',payload.imageFile||''].join('||'));}
-function normalizePublished(v, defaultValue=true){
-  if(typeof v==='boolean') return v;
-  const s=String(v??'').trim().toLowerCase();
-  if(!s) return defaultValue;
-  if(['true','1','yes','y'].includes(s)) return true;
-  if(['false','0','no','n'].includes(s)) return false;
-  return defaultValue;
-}
-function normalizeOrder(v, fallback=0){
-  const n = Number(v);
-  return Number.isFinite(n) && n>0 ? n : fallback;
-}
-function payloadFromFields(obj, options={}){
-  const text=String(obj.text||'').trim();
-  const defaultPublished = typeof options.defaultPublished === 'boolean' ? options.defaultPublished : true;
-  const fallbackOrder = Number(options.fallbackOrder || 0);
-  return {
-    title:titleFromText(text),
-    text:text,
-    date:String(obj.date||'').trim(),
-    url:String(obj.url||'').trim(),
-    audioFile:String(obj.audioFile||'').trim(),
-    imageFile:String(obj.imageFile||'').trim(),
-    audioUrl:buildUrl(AUDIO_BASE,obj.audioFile||''),
-    imageUrl:buildUrl(IMAGE_BASE,obj.imageFile||''),
-    order:normalizeOrder(obj.order, fallbackOrder),
-    published:normalizePublished(obj.published, defaultPublished),
-    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
-  };
-}
-
-async function loginNow(){
-  if(isLoggingIn) return;
-  isLoggingIn = true;
-  $('loginMsg').textContent = '登入中…';
-  $('loginBtn').disabled = true;
-  try{
-    const cred = await auth.signInWithEmailAndPassword($('email').value.trim(), $('password').value);
-    if((cred.user.email||'').toLowerCase() !== ADMIN_EMAIL.toLowerCase()){
-      await auth.signOut();
-      $('loginMsg').textContent = '這不是管理員帳號。';
-    }else{
-      $('loginMsg').textContent = '';
+    async function loginNow() {
+      if (isLoggingIn) return;
+      isLoggingIn = true;
+      loginMsg.textContent = '登入中…';
+      loginBtn.disabled = true;
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
+        if ((cred.user.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+          await signOut(auth);
+          loginMsg.textContent = '這不是管理員帳號。';
+        } else {
+          loginMsg.textContent = '';
+        }
+      } catch (err) {
+        loginMsg.textContent = '登入失敗：' + err.message;
+      } finally {
+        isLoggingIn = false;
+        loginBtn.disabled = false;
+      }
     }
-  }catch(err){
-    $('loginMsg').textContent = '登入失敗：' + err.message;
-  }finally{
-    $('loginBtn').disabled = false;
-    isLoggingIn = false;
-  }
-}
-$('loginBtn').addEventListener('click', loginNow);
-['email','password'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault(); loginNow();}}));
-$('logoutBtn').addEventListener('click', ()=>auth.signOut());
-
-auth.onAuthStateChanged(async user=>{
-  const ok = user && (user.email||'').toLowerCase() === ADMIN_EMAIL.toLowerCase();
-  ['loginCard'].forEach(id=>$(id).classList.toggle('hidden', !!ok));
-  ['adminPanel','importPanel','themePanel','exportPanel','visitStatsPanel','listPanel'].forEach(id=>$(id).classList.toggle('hidden', !ok));
-  if(ok){await loadItems(); await loadThemeSettings(); await loadVisitStats();}
-});
-
-function clearForm(){['docId','text','date','url','audioFile','imageFile','order'].forEach(id=>$(id).value=''); $('published').value='true'; $('saveMsg').textContent=''; $('saveBtn').disabled=false; $('saveBtn').textContent='儲存'; isSaving=false;}
-$('resetBtn').addEventListener('click', clearForm);
-
-$('saveBtn').addEventListener('click', async ()=>{
-  if(isSaving) return;
-  const text = $('text').value.trim();
-  if(!text){$('saveMsg').textContent='請填寫法語內容。'; return;}
-  const payload = payloadFromFields({text:text,date:$('date').value,url:$('url').value,audioFile:$('audioFile').value,imageFile:$('imageFile').value,order:$('order').value,published:$('published').value});
-  isSaving=true; $('saveBtn').disabled=true; $('saveBtn').textContent='儲存中...'; $('saveMsg').textContent='';
-  try{
-    if($('docId').value){
-      await db.collection('phrases').doc($('docId').value).update(payload);
-      $('saveMsg').textContent='更新成功';
-    }else{
-      const id = buildId(payload);
-      payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-      await db.collection('phrases').doc(id).set(payload,{merge:true});
-      $('saveMsg').textContent='新增成功';
-    }
-    clearForm();
-    await loadItems();
-  }catch(err){
-    $('saveMsg').textContent='儲存失敗：'+err.message;
-    $('saveBtn').disabled=false; $('saveBtn').textContent='儲存'; isSaving=false;
-  }
-});
-
-function parseCsvLine(line){
-  const out=[]; let cur='', inQuotes=false;
-  for(let i=0;i<line.length;i++){
-    const ch=line[i], next=line[i+1];
-    if(ch==='"'){ if(inQuotes && next==='"'){cur+='"'; i++;} else inQuotes=!inQuotes; }
-    else if(ch===',' && !inQuotes){ out.push(cur); cur=''; }
-    else cur+=ch;
-  }
-  out.push(cur);
-  return out.map(v=>v.trim());
-}
-function parseCsv(text){
-  const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(x=>x.trim()!=='');
-  if(lines.length<2) return [];
-  const headers=parseCsvLine(lines[0]);
-  return lines.slice(1).map(line=>{ const vals=parseCsvLine(line); const obj={}; headers.forEach((h,i)=>obj[h]=vals[i]??''); return obj;});
-}
-async function clearAllPhrases(){
-  const snap = await db.collection('phrases').get();
-  let count=0, batch=db.batch(), n=0;
-  for(const d of snap.docs){
-    batch.delete(d.ref); count++; n++;
-    if(n===200){ await batch.commit(); batch=db.batch(); n=0; }
-  }
-  if(n>0) await batch.commit();
-  return count;
-}
-
-async function publishAllPhrases(){
-  const snap = await db.collection('phrases').get();
-  let count=0, batch=db.batch(), n=0;
-  snap.forEach(doc=>{
-    batch.update(doc.ref, { published:true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-    count++; n++;
-    if(n===200){
-      batch.commit();
-      batch = db.batch();
-      n=0;
-    }
-  });
-  if(n>0) await batch.commit();
-  return count;
-}
-async function fixAllOrders(){
-  const snap = await db.collection('phrases').get();
-  const docs = [];
-  snap.forEach(doc=>docs.push({id:doc.id, ref:doc.ref, ...(doc.data()||{})}));
-  docs.sort((a,b)=>{
-    const ao = Number(a.order||0), bo = Number(b.order||0);
-    if(ao>0 && bo>0) return ao-bo;
-    const at = a.createdAt?.seconds || 0, bt = b.createdAt?.seconds || 0;
-    return bt-at;
-  });
-  let count=0, batch=db.batch(), n=0;
-  docs.forEach((doc, idx)=>{
-    batch.update(doc.ref, { order: idx+1, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-    count++; n++;
-    if(n===200){
-      batch.commit();
-      batch = db.batch();
-      n=0;
-    }
-  });
-  if(n>0) await batch.commit();
-  return count;
-}
-
-$('previewBtn').addEventListener('click', async ()=>{
-  $('importMsg').textContent=''; $('previewBox').innerHTML=''; $('previewBox').classList.add('hidden'); $('importBtn').disabled=true; parsedRows=[];
-  const file = $('csvFile').files[0];
-  if(!file){$('importMsg').innerHTML='<span style="color:#b00020">請先選擇 CSV 檔。</span>'; return;}
-  try{
-    const rows = parseCsv(await file.text());
-    const req=['text','date','url','audioFile','imageFile','order','published'];
-    if(!rows.length){$('importMsg').innerHTML='<span style="color:#b00020">CSV 沒有可匯入資料。</span>'; return;}
-    const missing=req.filter(k=>!Object.keys(rows[0]).includes(k));
-    if(missing.length){$('importMsg').innerHTML='<span style="color:#b00020">缺少欄位：'+missing.join(', ')+'</span>'; return;}
-    parsedRows = rows.filter(r=>String(r.text||'').trim()!=='');
-    $('previewBox').classList.remove('hidden');
-    $('previewBox').innerHTML = parsedRows.slice(0,20).map((r,i)=>`<div class="preview-row"><strong>${i+1}. ${esc(r.text)}</strong><br><span>date: ${esc(r.date)}</span><br><span>audioFile: ${esc(r.audioFile)}</span> ｜ <span>imageFile: ${esc(r.imageFile)}</span> ｜ <span>order: ${esc(r.order)}</span> ｜ <span>published: ${esc(r.published)}</span></div>`).join('');
-    if(parsedRows.length>20) $('previewBox').innerHTML += `<div class="preview-row">只顯示前 20 筆，實際將匯入 ${parsedRows.length} 筆。</div>`;
-    $('importMsg').innerHTML=`<span style="color:#2d6a4f">預覽完成，可匯入 ${parsedRows.length} 筆。</span>`;
-    $('importBtn').disabled=false;
-  }catch(err){$('importMsg').innerHTML='<span style="color:#b00020">讀取 CSV 失敗：'+esc(err.message)+'</span>';}
-});
-
-$('importBtn').addEventListener('click', async ()=>{
-  if(!parsedRows.length){$('importMsg').innerHTML='<span style="color:#b00020">請先預覽 CSV。</span>'; return;}
-  $('importBtn').disabled=true; $('previewBtn').disabled=true; $('importMsg').innerHTML='<span style="color:#b45309">匯入中...</span>';
-  try{
-    let cleared=0;
-    if($('clearBeforeImport').checked) cleared = await clearAllPhrases();
-
-    let autoOrderBase = 1;
-    if(!$('clearBeforeImport').checked){
-      const existingSnap = await db.collection('phrases').get();
-      autoOrderBase = existingSnap.size + 1;
-    }
-
-    for(let i=0;i<parsedRows.length;i+=200){
-      const batch = db.batch();
-      parsedRows.slice(i,i+200).forEach((row, idx)=>{
-        const fallbackOrder = autoOrderBase + i + idx;
-        const payload = payloadFromFields(row, { defaultPublished:true, fallbackOrder });
-        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-        batch.set(db.collection('phrases').doc(buildId(payload)), payload, {merge:true});
+    loginBtn.addEventListener('click', loginNow);
+    [email, password].forEach(el => {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          loginNow();
+        }
       });
-      await batch.commit();
+    });
+    logoutBtn.addEventListener('click', async () => { await signOut(auth); window.location.href = 'index.html'; });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        loginCard.classList.add('hidden');
+        adminPanel.classList.remove('hidden');
+        importPanel.classList.remove('hidden');
+        themePanel.classList.remove('hidden');
+        exportPanel.classList.remove('hidden');
+        listPanel.classList.remove('hidden');
+        await loadItems();
+        await loadThemeSettings();
+      } else {
+        window.location.href = 'index.html';
+      }
+    });
+
+    function clearForm() {
+      docId.value = '';
+      textEl.value = '';
+      dateEl.value = '';
+      urlEl.value = '';
+      audioFile.value = '';
+      imageFile.value = '';
+      orderEl.value = '';
+      published.value = 'true';
+      saveMsg.textContent = '';
+      saveBtn.textContent = '儲存';
+      saveBtn.disabled = false;
+      isSaving = false;
     }
-    $('importMsg').innerHTML=`<span style="color:#2d6a4f">批量匯入完成，共處理 ${parsedRows.length} 筆。${$('clearBeforeImport').checked ? `已先清空 ${cleared} 筆舊資料。` : ''}</span>`;
-    parsedRows=[]; $('csvFile').value=''; $('previewBox').classList.add('hidden'); $('previewBox').innerHTML=''; $('previewBtn').disabled=false;
-    await loadItems();
-  }catch(err){
-    $('importMsg').innerHTML='<span style="color:#b00020">批量匯入失敗：'+esc(err.message)+'</span>';
-    $('previewBtn').disabled=false; $('importBtn').disabled=false;
-  }
-});
+    resetBtn.addEventListener('click', clearForm);
 
-$('downloadTemplateBtn').addEventListener('click', ()=>{
-  const content=['text,date,url,audioFile,imageFile,order,published','願眾生離苦得樂,DVD745,https://example.com,0001.mp3,0001.jpg,1,true','心存善念世界更美好,DVD746,https://example.com,0002.mp3,0002.jpg,2,true'].join('\n');
-  const blob=new Blob([content],{type:'text/csv;charset=utf-8;'}), url=URL.createObjectURL(blob), a=document.createElement('a');
-  a.href=url; a.download='ganlu_import_template.csv'; a.click(); URL.revokeObjectURL(url);
-});
+    saveBtn.addEventListener('click', async () => {
+      if (isSaving) return;
+      saveMsg.textContent = '';
+      const textValue = textEl.value.trim();
+      if (!textValue) {
+        saveMsg.textContent = '請填寫法語內容。';
+        return;
+      }
+      const payload = payloadFromFields({
+        text: textValue,
+        date: dateEl.value,
+        url: urlEl.value,
+        audioFile: audioFile.value,
+        imageFile: imageFile.value,
+        order: orderEl.value,
+        published: published.value
+      });
 
-async function loadThemeSettings(){
-  try{
-    const snap = await db.collection('site_settings').doc('appearance').get();
-    if(!snap.exists){$('themeMsg').textContent='尚未儲存外觀設定'; return;}
-    const d=snap.data()||{};
-    $('themeName').value=d.themeName||'default';
-    $('quoteFontFamily').value=d.quoteFontFamily||'Noto Serif TC';
-    $('titleFontFamily').value=d.titleFontFamily||'Noto Serif TC';
-    $('quoteFontSize').value=d.quoteFontSize ?? 18;
-    $('cardOpacity').value=d.cardOpacity ?? 0.16;
-    $('quoteTextColor').value=d.quoteTextColor||'#eef7f6';
-    $('titleTextColor').value=d.titleTextColor||'#eef7f6';
-    $('sourceTextColor').value=d.sourceTextColor||'#f6fcfc';
-    $('themeMsg').textContent='已載入外觀設定。';
-  }catch(err){$('themeMsg').textContent='讀取外觀設定失敗：'+err.message;}
-}
-$('saveThemeBtn').addEventListener('click', async ()=>{
-  try{
-    await db.collection('site_settings').doc('appearance').set({
-      themeName:$('themeName').value,
-      quoteFontFamily:$('quoteFontFamily').value,
-      titleFontFamily:$('titleFontFamily').value,
-      quoteFontSize:Number($('quoteFontSize').value||18),
-      cardOpacity:Number($('cardOpacity').value||0.16),
-      quoteTextColor:$('quoteTextColor').value,
-      titleTextColor:$('titleTextColor').value,
-      sourceTextColor:$('sourceTextColor').value,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    },{merge:true});
-    $('themeMsg').textContent='外觀設定已儲存。';
-  }catch(err){$('themeMsg').textContent='儲存外觀設定失敗：'+err.message;}
-});
-$('loadThemeBtn').addEventListener('click', loadThemeSettings);
+      isSaving = true;
+      saveBtn.disabled = true;
+      saveBtn.textContent = '儲存中...';
+      try {
+        if (docId.value) {
+          await updateDoc(doc(db, 'phrases', docId.value), payload);
+          saveMsg.textContent = '更新成功';
+        } else {
+          const stableId = buildDeterministicId(payload);
+          payload.createdAt = serverTimestamp();
+          await setDoc(doc(db, 'phrases', stableId), payload, { merge: true });
+          saveMsg.textContent = '新增成功';
+        }
+        clearForm();
+        await loadItems();
+      } catch (err) {
+        saveMsg.textContent = '儲存失敗：' + err.message;
+        isSaving = false;
+        saveBtn.disabled = false;
+        saveBtn.textContent = '儲存';
+      }
+    });
 
-function sanitizeExportRecord(item){return {text:item.text||'',date:item.date||'',url:item.url||'',audioFile:item.audioFile||'',imageFile:item.imageFile||'',order:Number(item.order||0),published:!!item.published};}
-async function exportData(format, onlyPublished=false){
-  try{
-    const snap = await db.collection('phrases').get();
-    let rows=[]; snap.forEach(d=>rows.push(sanitizeExportRecord(d.data()))); rows.sort((a,b)=>Number(a.order||0)-Number(b.order||0)); if(onlyPublished) rows=rows.filter(r=>r.published);
-    if(!rows.length){$('exportMsg').textContent='目前沒有可匯出的資料。'; return;}
-    if(format==='json'){
-      const blob=new Blob([JSON.stringify(rows,null,2)],{type:'application/json;charset=utf-8;'}), url=URL.createObjectURL(blob), a=document.createElement('a');
-      a.href=url; a.download=onlyPublished?'phrases_published.json':'phrases.json'; a.click(); URL.revokeObjectURL(url);
-      $('exportMsg').textContent=`已匯出 ${rows.length} 筆 JSON。`; return;
+    function parseCsvLine(line) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const next = line[i + 1];
+        if (char === '"') {
+          if (inQuotes && next === '"') { current += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        } else if (char === ',' && !inQuotes) {
+          result.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current);
+      return result.map(v => v.trim());
     }
-    const header=['text','date','url','audioFile','imageFile','order','published'];
-    const csv=[header.join(',')]; rows.forEach(r=>csv.push(header.map(k=>csvEsc(r[k])).join(',')));
-    const blob=new Blob(["\uFEFF"+csv.join('\n')],{type:'text/csv;charset=utf-8;'}), url=URL.createObjectURL(blob), a=document.createElement('a');
-    a.href=url; a.download='phrases.csv'; a.click(); URL.revokeObjectURL(url);
-    $('exportMsg').textContent=`已匯出 ${rows.length} 筆 CSV。`;
-  }catch(err){$('exportMsg').textContent='匯出失敗：'+err.message;}
-}
-$('exportJsonBtn').addEventListener('click', ()=>exportData('json', false));
-$('exportCsvBtn').addEventListener('click', ()=>exportData('csv', false));
-$('exportPublishedJsonBtn').addEventListener('click', ()=>exportData('json', true));
-$('publishAllBtn').addEventListener('click', async ()=>{
-  if(!confirm('確定要把全部法語改成發布嗎？')) return;
-  $('exportMsg').textContent='批次上架中...';
-  try{
-    const n = await publishAllPhrases();
-    $('exportMsg').textContent=`已將 ${n} 筆法語改成發布。`;
-    await loadItems();
-  }catch(err){
-    $('exportMsg').textContent='批次上架失敗：'+err.message;
-  }
-});
-$('fixOrderBtn').addEventListener('click', async ()=>{
-  if(!confirm('確定要自動重排全部排序嗎？')) return;
-  $('exportMsg').textContent='自動補排序中...';
-  try{
-    const n = await fixAllOrders();
-    $('exportMsg').textContent=`已重新排序 ${n} 筆法語。`;
-    await loadItems();
-  }catch(err){
-    $('exportMsg').textContent='自動補排序失敗：'+err.message;
-  }
-});
-$('clearAllBtn').addEventListener('click', async ()=>{
-  if(!confirm('確定要清空全部法語資料嗎？這個動作無法復原。')) return;
-  $('exportMsg').textContent='清空中...';
-  try{ const n = await clearAllPhrases(); $('exportMsg').textContent=`已清空 ${n} 筆資料。`; await loadItems(); }
-  catch(err){ $('exportMsg').textContent='清空失敗：'+err.message; }
-});
-
-function renderItems(keyword=''){
-  const kw = String(keyword || '').trim().toLowerCase();
-  const filtered = !kw ? allItems : allItems.filter(d => {
-    const fields = [
-      d.text, d.date, d.url, d.audioFile, d.imageFile,
-      d.audioUrl, d.imageUrl, d.title, d.order,
-      d.published ? '發布 true published' : '下架 false unpublished'
-    ];
-    return fields.some(v => String(v || '').toLowerCase().includes(kw));
-  });
-
-  $('searchStatus').textContent = kw ? `搜尋「${keyword}」：${filtered.length} 筆` : `全部資料：${allItems.length} 筆`;
-
-  const box = $('items');
-  box.innerHTML = '';
-
-  if (!filtered.length) {
-    box.innerHTML = '<p>找不到符合資料</p>';
-    return;
-  }
-
-  filtered.forEach(d => {
-    const item = document.createElement('div');
-    item.className = 'item';
-
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    meta.textContent = `排序：${d.order ?? ''} ｜ 狀態：${d.published ? '發布' : '下架'}`;
-    item.appendChild(meta);
-
-    const textDiv = document.createElement('div');
-    textDiv.style.whiteSpace = 'pre-wrap';
-    textDiv.style.marginBottom = '10px';
-    textDiv.textContent = d.text || '';
-    item.appendChild(textDiv);
-
-    if (d.date) {
-      const dateDiv = document.createElement('div');
-      dateDiv.textContent = `日期/來源：${d.date}`;
-      item.appendChild(dateDiv);
+    function parseCsv(text) {
+      const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim() !== '');
+      if (lines.length < 2) return [];
+      const headers = parseCsvLine(lines[0]);
+      return lines.slice(1).map(line => {
+        const values = parseCsvLine(line);
+        const obj = {};
+        headers.forEach((header, index) => { obj[header] = values[index] ?? ''; });
+        return obj;
+      });
     }
 
-    if (d.url) {
-      const urlDiv = document.createElement('div');
-      urlDiv.className = 'help';
-      const label = document.createTextNode('超連結：');
+    async function clearAllPhrases() {
+      const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
+      const snap = await getDocs(q);
+      if (snap.empty) return 0;
+      let count = 0;
+      let batch = writeBatch(db);
+      let n = 0;
+      for (const d of snap.docs) {
+        batch.delete(doc(db, 'phrases', d.id));
+        n++;
+        count++;
+        if (n === 200) {
+          await batch.commit();
+          batch = writeBatch(db);
+          n = 0;
+        }
+      }
+      if (n > 0) await batch.commit();
+      return count;
+    }
+
+    previewBtn.addEventListener('click', async () => {
+      importMsg.textContent = '';
+      previewBox.innerHTML = '';
+      previewBox.classList.add('hidden');
+      importBtn.disabled = true;
+      parsedRows = [];
+      const file = csvFile.files[0];
+      if (!file) {
+        importMsg.innerHTML = '<span class="status-err">請先選擇 CSV 檔。</span>';
+        return;
+      }
+      try {
+        const content = await file.text();
+        const rows = parseCsv(content);
+        if (!rows.length) {
+          importMsg.innerHTML = '<span class="status-err">CSV 沒有可匯入資料，或格式不正確。</span>';
+          return;
+        }
+        const required = ['text', 'date', 'url', 'audioFile', 'imageFile', 'order', 'published'];
+        const firstRowKeys = Object.keys(rows[0]);
+        const missing = required.filter(key => !firstRowKeys.includes(key));
+        if (missing.length) {
+          importMsg.innerHTML = '<span class="status-err">缺少欄位：' + missing.join(', ') + '</span>';
+          return;
+        }
+        parsedRows = rows.filter(row => String(row.text || '').trim() !== '');
+        if (!parsedRows.length) {
+          importMsg.innerHTML = '<span class="status-err">沒有有效資料列。</span>';
+          return;
+        }
+        previewBox.classList.remove('hidden');
+        previewBox.innerHTML = parsedRows.slice(0, 20).map((row, idx) => `
+          <div class="preview-row">
+            <strong>${idx + 1}. ${escapeHtml(row.text || '')}</strong><br>
+            <span>date: ${escapeHtml(row.date || '')}</span><br>
+            <span>audioFile: ${escapeHtml(row.audioFile || '')}</span> ｜ 
+            <span>imageFile: ${escapeHtml(row.imageFile || '')}</span> ｜ 
+            <span>order: ${escapeHtml(row.order || '')}</span> ｜ 
+            <span>published: ${escapeHtml(row.published || '')}</span>
+          </div>
+        `).join('');
+        if (parsedRows.length > 20) {
+          previewBox.innerHTML += `<div class="preview-row status-warn">只顯示前 20 筆，實際將匯入 ${parsedRows.length} 筆。</div>`;
+        }
+        importMsg.innerHTML = `<span class="status-ok">預覽完成，可匯入 ${parsedRows.length} 筆。</span>`;
+        importBtn.disabled = false;
+      } catch (err) {
+        importMsg.innerHTML = '<span class="status-err">讀取 CSV 失敗：' + escapeHtml(err.message) + '</span>';
+      }
+    });
+
+    importBtn.addEventListener('click', async () => {
+      if (!parsedRows.length) {
+        importMsg.innerHTML = '<span class="status-err">請先預覽 CSV。</span>';
+        return;
+      }
+      importBtn.disabled = true;
+      previewBtn.disabled = true;
+      importMsg.innerHTML = '<span class="status-warn">匯入中...</span>';
+      try {
+        let cleared = 0;
+        if (clearBeforeImport.checked) {
+          cleared = await clearAllPhrases();
+        }
+        const chunkSize = 200;
+        for (let i = 0; i < parsedRows.length; i += chunkSize) {
+          const chunk = parsedRows.slice(i, i + chunkSize);
+          const batch = writeBatch(db);
+          chunk.forEach(row => {
+            const payload = payloadFromFields(row);
+            const stableId = buildDeterministicId(payload);
+            const ref = doc(db, 'phrases', stableId);
+            batch.set(ref, { ...payload, createdAt: serverTimestamp() }, { merge: true });
+          });
+          await batch.commit();
+        }
+        importMsg.innerHTML = `<span class="status-ok">批量匯入完成，共處理 ${parsedRows.length} 筆。${clearBeforeImport.checked ? `已先清空 ${cleared} 筆舊資料。`: ''}</span>`;
+        parsedRows = [];
+        csvFile.value = '';
+        previewBox.innerHTML = '';
+        previewBox.classList.add('hidden');
+        importBtn.disabled = true;
+        previewBtn.disabled = false;
+        await loadItems();
+      } catch (err) {
+        importMsg.innerHTML = '<span class="status-err">批量匯入失敗：' + escapeHtml(err.message) + '</span>';
+        importBtn.disabled = false;
+        previewBtn.disabled = false;
+      }
+    });
+
+    downloadTemplateBtn.addEventListener('click', () => {
+      const content = [
+        'text,date,url,audioFile,imageFile,order,published',
+        '願眾生離苦得樂,DVD745,https://example.com,0001.mp3,0001.jpg,1,true',
+        '心存善念世界更美好,DVD746,https://example.com,0002.mp3,0002.jpg,2,true'
+      ].join('\n');
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = d.url;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.textContent = d.url;
-      urlDiv.appendChild(label);
-      urlDiv.appendChild(a);
-      item.appendChild(urlDiv);
-    }
-
-    if (d.audioFile) {
-      const audioDiv = document.createElement('div');
-      audioDiv.textContent = `音檔檔名：${d.audioFile}`;
-      item.appendChild(audioDiv);
-    }
-
-    if (d.imageFile) {
-      const imageDiv = document.createElement('div');
-      imageDiv.textContent = `圖片檔名：${d.imageFile}`;
-      item.appendChild(imageDiv);
-    }
-
-    const btnWrap = document.createElement('div');
-    btnWrap.style.marginTop = '10px';
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn-primary';
-    editBtn.type = 'button';
-    editBtn.textContent = '編輯';
-    editBtn.addEventListener('click', () => {
-      $('docId').value = d.id || '';
-      $('text').value = d.text || '';
-      $('date').value = d.date || '';
-      $('url').value = d.url || '';
-      $('audioFile').value = d.audioFile || '';
-      $('imageFile').value = d.imageFile || '';
-      $('order').value = d.order ?? '';
-      $('published').value = String(!!d.published);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      a.href = url;
+      a.download = 'ganlu_import_template.csv';
+      a.click();
+      URL.revokeObjectURL(url);
     });
 
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-danger';
-    delBtn.type = 'button';
-    delBtn.textContent = '刪除';
-    delBtn.addEventListener('click', async () => {
-      if (!confirm('確定要刪除這筆資料嗎？')) return;
-      await db.collection('phrases').doc(d.id).delete();
-      await loadItems();
+    async function loadThemeSettings() {
+      themeMsg.textContent = '';
+      try {
+        const ref = doc(db, 'site_settings', 'appearance');
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          themeMsg.innerHTML = '<span class="status-warn">尚未儲存外觀設定，現在顯示預設值。</span>';
+          return;
+        }
+        const data = snap.data();
+        themeName.value = data.themeName || 'default';
+        quoteFontFamily.value = data.quoteFontFamily || 'Noto Serif TC';
+        titleFontFamily.value = data.titleFontFamily || 'Noto Serif TC';
+        quoteFontSize.value = data.quoteFontSize ?? 18;
+        cardOpacity.value = data.cardOpacity ?? 0.16;
+        quoteTextColor.value = data.quoteTextColor || '#eef7f6';
+        titleTextColor.value = data.titleTextColor || '#eef7f6';
+        sourceTextColor.value = data.sourceTextColor || '#f6fcfc';
+        themeMsg.innerHTML = '<span class="status-ok">已載入外觀設定。</span>';
+      } catch (err) {
+        themeMsg.innerHTML = '<span class="status-err">讀取外觀設定失敗：' + escapeHtml(err.message) + '</span>';
+      }
+    }
+    saveThemeBtn.addEventListener('click', async () => {
+      themeMsg.textContent = '';
+      const payload = {
+        themeName: themeName.value,
+        quoteFontFamily: quoteFontFamily.value,
+        titleFontFamily: titleFontFamily.value,
+        quoteFontSize: Number(quoteFontSize.value || 18),
+        cardOpacity: Number(cardOpacity.value || 0.16),
+        quoteTextColor: quoteTextColor.value,
+        titleTextColor: titleTextColor.value,
+        sourceTextColor: sourceTextColor.value,
+        updatedAt: serverTimestamp()
+      };
+      try {
+        await setDoc(doc(db, 'site_settings', 'appearance'), payload, { merge: true });
+        themeMsg.innerHTML = '<span class="status-ok">外觀設定已儲存。</span>';
+      } catch (err) {
+        themeMsg.innerHTML = '<span class="status-err">儲存外觀設定失敗：' + escapeHtml(err.message) + '</span>';
+      }
+    });
+    loadThemeBtn.addEventListener('click', async () => { await loadThemeSettings(); });
+
+    function sanitizeExportRecord(item) {
+      return {
+        text: item.text || '',
+        date: item.date || '',
+        url: item.url || '',
+        audioFile: item.audioFile || '',
+        imageFile: item.imageFile || '',
+        order: Number(item.order || 0),
+        published: !!item.published
+      };
+    }
+    async function exportData(format, onlyPublished = false) {
+      exportMsg.textContent = '';
+      try {
+        const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
+        const snap = await getDocs(q);
+        let rows = [];
+        snap.forEach(d => rows.push(sanitizeExportRecord(d.data())));
+        if (onlyPublished) rows = rows.filter(r => r.published);
+        if (!rows.length) {
+          exportMsg.innerHTML = '<span class="status-warn">目前沒有可匯出的資料。</span>';
+          return;
+        }
+        if (format === 'json') {
+          const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = onlyPublished ? 'phrases_published.json' : 'phrases.json';
+          a.click();
+          URL.revokeObjectURL(url);
+          exportMsg.innerHTML = `<span class="status-ok">已匯出 ${rows.length} 筆 JSON。</span>`;
+          return;
+        }
+        if (format === 'csv') {
+          const header = ['text','date','url','audioFile','imageFile','order','published'];
+          const csvLines = [header.join(',')];
+          rows.forEach(row => {
+            const values = header.map(key => csvEscape(String(row[key] ?? '')));
+            csvLines.push(values.join(','));
+          });
+          const blob = new Blob(["\uFEFF" + csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'phrases.csv';
+          a.click();
+          URL.revokeObjectURL(url);
+          exportMsg.innerHTML = `<span class="status-ok">已匯出 ${rows.length} 筆 CSV。</span>`;
+        }
+      } catch (err) {
+        exportMsg.innerHTML = '<span class="status-err">匯出失敗：' + escapeHtml(err.message) + '</span>';
+      }
+    }
+    exportJsonBtn.addEventListener('click', async () => { await exportData('json', false); });
+    exportCsvBtn.addEventListener('click', async () => { await exportData('csv', false); });
+    exportPublishedJsonBtn.addEventListener('click', async () => { await exportData('json', true); });
+    clearAllBtn.addEventListener('click', async () => {
+      if (!confirm('確定要清空全部法語資料嗎？這個動作無法復原。')) return;
+      exportMsg.innerHTML = '<span class="status-warn">清空中...</span>';
+      try {
+        const n = await clearAllPhrases();
+        exportMsg.innerHTML = `<span class="status-ok">已清空 ${n} 筆資料。</span>`;
+        await loadItems();
+      } catch (err) {
+        exportMsg.innerHTML = '<span class="status-err">清空失敗：' + escapeHtml(err.message) + '</span>';
+      }
     });
 
-    btnWrap.appendChild(editBtn);
-    btnWrap.appendChild(delBtn);
-    item.appendChild(btnWrap);
+    function runSearch() {
+      renderItems(searchInput.value.trim());
+    }
+    searchInput.addEventListener('input', runSearch);
+    searchInput.addEventListener('change', runSearch);
+    searchInput.addEventListener('compositionend', runSearch);
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runSearch();
+      }
+    });
+    runSearchBtn.addEventListener('click', runSearch);
+    clearSearchBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      renderItems('');
+    });
 
-    box.appendChild(item);
-  });
-}
-async function loadItems(){
-  $('items').innerHTML='讀取中...';
-  const snap = await db.collection('phrases').get();
-  allItems=[]; 
-  snap.forEach(d=>allItems.push({id:d.id, ...d.data()}));
-  allItems.sort((a,b)=>{
-    const ao = Number(a.order||0), bo = Number(b.order||0);
-    if(ao>0 && bo>0) return ao-bo;
-    if(ao>0) return -1;
-    if(bo>0) return 1;
-    const at = a.createdAt?.seconds || 0, bt = b.createdAt?.seconds || 0;
-    return bt-at;
-  });
-  renderItems($('searchInput').value.trim());
-}
-function runSearch(){ renderItems($('searchInput').value.trim()); }
-$('searchInput').addEventListener('input', runSearch);
-$('searchInput').addEventListener('change', runSearch);
-$('searchInput').addEventListener('compositionend', runSearch);
-$('searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){e.preventDefault(); runSearch();} });
-$('runSearchBtn').addEventListener('click', runSearch);
-$('clearSearchBtn').addEventListener('click', ()=>{ $('searchInput').value=''; renderItems(''); });
-$('refreshStatsBtn').addEventListener('click', loadVisitStats);
-</script>
+    async function loadItems() {
+      items.innerHTML = '讀取中...';
+      try {
+        const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
+        const snap = await getDocs(q);
+        allItems = [];
+        snap.forEach((itemDoc) => {
+          allItems.push({ id: itemDoc.id, ...itemDoc.data() });
+        });
+        renderItems(searchInput.value.trim());
+      } catch (err) {
+        items.innerHTML = '<p>讀取失敗：' + err.message + '</p>';
+      }
+    }
+
+    function renderItems(keyword = '') {
+      const kw = String(keyword || '').trim().toLowerCase();
+      const filtered = !kw ? allItems : allItems.filter(data => {
+        const fields = [data.text, data.date, data.url, data.audioFile, data.imageFile, data.audioUrl, data.imageUrl, data.title, data.order, data.published ? '發布 true published' : '下架 false unpublished'];
+        return fields.some(v => String(v || '').toLowerCase().includes(kw));
+      });
+
+      searchStatus.textContent = kw ? `搜尋「${keyword}」：${filtered.length} 筆` : `全部資料：${allItems.length} 筆`;
+      if (!filtered.length) {
+        items.innerHTML = '<p>找不到符合資料</p>';
+        return;
+      }
+
+      items.innerHTML = '';
+      filtered.forEach((data) => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.innerHTML = `
+          <div class="meta">排序：${data.order ?? ''} ｜ 狀態：${data.published ? '發布' : '下架'}</div>
+          <div style="white-space:pre-wrap;margin-bottom:10px;">${escapeHtml(data.text || '')}</div>
+          ${data.date ? `<div>日期/來源：${escapeHtml(data.date)}</div>` : ''}
+          ${data.url ? `<div class="small-link">超連結：<a href="${escapeAttr(data.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(data.url)}</a></div>` : ''}
+          ${data.audioFile ? `<div>音檔檔名：${escapeHtml(data.audioFile)}</div>` : ''}
+          ${data.imageFile ? `<div>圖片檔名：${escapeHtml(data.imageFile)}</div>` : ''}
+          ${data.audioUrl ? `<div class="small-link"><a href="${escapeAttr(data.audioUrl)}" target="_blank" rel="noopener noreferrer">音檔連結</a></div>` : ''}
+          ${data.imageUrl ? `<div class="small-link"><a href="${escapeAttr(data.imageUrl)}" target="_blank" rel="noopener noreferrer">圖片連結</a></div>` : ''}
+          <div style="margin-top:10px;">
+            <button class="btn-primary" data-edit="${data.id}" type="button">編輯</button>
+            <button class="btn-danger" data-del="${data.id}" type="button">刪除</button>
+          </div>
+        `;
+        items.appendChild(div);
+      });
+
+      document.querySelectorAll('[data-edit]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.edit;
+          const data = allItems.find(x => x.id === id);
+          if (!data) return;
+          docId.value = data.id;
+          textEl.value = data.text || '';
+          dateEl.value = data.date || '';
+          urlEl.value = data.url || '';
+          audioFile.value = data.audioFile || '';
+          imageFile.value = data.imageFile || '';
+          orderEl.value = data.order ?? '';
+          published.value = String(!!data.published);
+          saveMsg.textContent = '';
+          saveBtn.textContent = '儲存';
+          saveBtn.disabled = false;
+          isSaving = false;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      });
+
+      document.querySelectorAll('[data-del]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.del;
+          if (!confirm('確定要刪除這筆資料嗎？')) return;
+          await deleteDoc(doc(db, 'phrases', id));
+          await loadItems();
+        });
+      });
+    }
+
+    function csvEscape(str) {
+      if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    }
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+    function escapeAttr(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#039;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+  </script>
 </body>
 </html>
