@@ -1725,9 +1725,29 @@ window.addEventListener('load', () => {
       return;
     }
 
-    hideAdmin();
-    const target = 'admin.html?auto=1&email=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass);
-    window.location.href = target;
+    const auth = initFirebaseAuthSingleSource();
+    if (!auth) {
+      alert("Firebase Auth 初始化失敗，無法登入管理後台。");
+      return;
+    }
+
+    try {
+      await auth.signInWithEmailAndPassword(user, pass);
+      try {
+        localStorage.setItem('ganlu_admin_bridge', JSON.stringify({
+          email: user,
+          password: pass,
+          ts: Date.now()
+        }));
+      } catch (storageErr) {
+        console.warn('無法暫存管理登入交接資料：', storageErr);
+      }
+      hideAdmin();
+      window.location.href = 'admin.html';
+    } catch (err) {
+      console.warn('管理後台登入失敗：', err);
+      alert("登入失敗，請確認 Firebase 管理員帳號密碼是否一致。");
+    }
  }
 </script>
 </body>

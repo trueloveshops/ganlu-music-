@@ -298,20 +298,61 @@
     let isLoggingIn = false;
     let parsedRows = [];
     let allItems = [];
-    let isAutoLoggingIn = false;
+    let bridgeLoginInProgress = false;
+    let adminDataLoaded = false;
 
-    function getAutoLoginParams() {
-      const params = new URLSearchParams(window.location.search || '');
-      return {
-        auto: params.get('auto') === '1',
-        email: (params.get('email') || '').trim(),
-        password: (params.get('password') || '').trim()
-      };
+    function revealLoginCard(message = '') {
+      loginCard.classList.remove('hidden');
+      adminPanel.classList.add('hidden');
+      importPanel.classList.add('hidden');
+      themePanel.classList.add('hidden');
+      exportPanel.classList.add('hidden');
+      listPanel.classList.add('hidden');
+      loginMsg.textContent = message;
     }
 
-    function cleanAdminUrl() {
-      if (window.location.search) {
-        history.replaceState({}, document.title, 'admin.html');
+    async function tryBridgeLogin() {
+      let raw = null;
+      try {
+        raw = localStorage.getItem('ganlu_admin_bridge');
+      } catch (err) {
+        return false;
+      }
+      if (!raw) return false;
+
+      let payload = null;
+      try {
+        payload = JSON.parse(raw);
+      } catch (err) {
+        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
+        return false;
+      }
+
+      const emailValue = String(payload?.email || '').trim();
+      const passwordValue = String(payload?.password || '').trim();
+      const ts = Number(payload?.ts || 0);
+      const expired = !ts || Math.abs(Date.now() - ts) > 2 * 60 * 1000;
+      if (!emailValue || !passwordValue || expired) {
+        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
+        return false;
+      }
+
+      bridgeLoginInProgress = true;
+      loginBtn.disabled = true;
+      revealLoginCard('登入交接中…');
+      email.value = emailValue;
+      password.value = passwordValue;
+      try {
+        const cred = await signInWithEmailAndPassword(auth, emailValue, passwordValue);
+        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
+        return (cred.user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      } catch (err) {
+        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
+        revealLoginCard('自動登入失敗，請手動登入。');
+        return false;
+      } finally {
+        bridgeLoginInProgress = false;
+        loginBtn.disabled = false;
       }
     }
 
@@ -359,7 +400,7 @@
     }
 
     async function loginNow() {
-      if (isLoggingIn) return;
+      if (isLoggingIn || bridgeLoginInProgress) return;
       isLoggingIn = true;
       loginMsg.textContent = '登入中…';
       loginBtn.disabled = true;
@@ -388,51 +429,31 @@
       });
     });
     logoutBtn.addEventListener('click', async () => {
-      try {
-        await signOut(auth);
-      } finally {
-        window.location.href = 'index.html';
-      }
+      try { localStorage.removeItem('ganlu_admin_bridge'); } catch (err) {}
+      await signOut(auth);
+      window.location.href = 'index.html';
     });
 
     onAuthStateChanged(auth, async (user) => {
       if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-        cleanAdminUrl();
-        isAutoLoggingIn = false;
         loginCard.classList.add('hidden');
         adminPanel.classList.remove('hidden');
         importPanel.classList.remove('hidden');
         themePanel.classList.remove('hidden');
         exportPanel.classList.remove('hidden');
         listPanel.classList.remove('hidden');
-        await loadItems();
-        await loadThemeSettings();
-      } else {
-        if (isAutoLoggingIn) return;
-        loginCard.classList.remove('hidden');
-        adminPanel.classList.add('hidden');
-        importPanel.classList.add('hidden');
-        themePanel.classList.add('hidden');
-        exportPanel.classList.add('hidden');
-        listPanel.classList.add('hidden');
+        if (!adminDataLoaded) {
+          adminDataLoaded = true;
+          await loadItems();
+          await loadThemeSettings();
+        }
+      } else if (!bridgeLoginInProgress) {
+        adminDataLoaded = false;
+        revealLoginCard('');
       }
     });
 
-    const autoLogin = getAutoLoginParams();
-    if (autoLogin.auto && autoLogin.email && autoLogin.password) {
-      isAutoLoggingIn = true;
-      loginCard.classList.add('hidden');
-      loginMsg.textContent = '';
-      signInWithEmailAndPassword(auth, autoLogin.email, autoLogin.password)
-        .catch((err) => {
-          isAutoLoggingIn = false;
-          cleanAdminUrl();
-          loginCard.classList.remove('hidden');
-          loginMsg.textContent = '自動登入失敗：' + err.message;
-        });
-    } else {
-      cleanAdminUrl();
-    }
+    tryBridgeLogin();
 
     function clearForm() {
       docId.value = '';
