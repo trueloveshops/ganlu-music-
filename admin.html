@@ -298,6 +298,50 @@
     let isLoggingIn = false;
     let parsedRows = [];
     let allItems = [];
+    let autoLoginTried = false;
+
+    function getStoredAdminCredentials() {
+      try {
+        const emailValue = sessionStorage.getItem('ganlu_admin_email') || '';
+        const passValue = sessionStorage.getItem('ganlu_admin_pass') || '';
+        const loginAt = Number(sessionStorage.getItem('ganlu_admin_login_at') || '0');
+        const freshEnough = loginAt && (Date.now() - loginAt < 10 * 60 * 1000);
+        if (!freshEnough) return null;
+        if (!emailValue || !passValue) return null;
+        return { email: emailValue, password: passValue };
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function clearStoredAdminCredentials() {
+      try {
+        sessionStorage.removeItem('ganlu_admin_email');
+        sessionStorage.removeItem('ganlu_admin_pass');
+        sessionStorage.removeItem('ganlu_admin_login_at');
+      } catch (_) {}
+    }
+
+    async function tryAutoLoginFromIndex() {
+      if (autoLoginTried) return false;
+      autoLoginTried = true;
+      const saved = getStoredAdminCredentials();
+      if (!saved) return false;
+      loginMsg.textContent = '登入中…';
+      try {
+        const cred = await signInWithEmailAndPassword(auth, saved.email, saved.password);
+        if ((cred.user.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+          await signOut(auth);
+          clearStoredAdminCredentials();
+          return false;
+        }
+        return true;
+      } catch (err) {
+        console.warn('自動登入失敗：', err);
+        clearStoredAdminCredentials();
+        return false;
+      }
+    }
 
     function buildUrl(base, filename) {
       const value = (filename || '').trim();
@@ -351,8 +395,14 @@
         const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
         if ((cred.user.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
           await signOut(auth);
+          clearStoredAdminCredentials();
           loginMsg.textContent = '這不是管理員帳號。';
         } else {
+          try {
+            sessionStorage.setItem('ganlu_admin_email', email.value.trim());
+            sessionStorage.setItem('ganlu_admin_pass', password.value);
+            sessionStorage.setItem('ganlu_admin_login_at', String(Date.now()));
+          } catch (_) {}
           loginMsg.textContent = '';
         }
       } catch (err) {
@@ -371,7 +421,7 @@
         }
       });
     });
-    logoutBtn.addEventListener('click', async () => { await signOut(auth); window.location.href = 'index.html'; });
+    logoutBtn.addEventListener('click', async () => { clearStoredAdminCredentials(); await signOut(auth); window.location.href = 'index.html'; });
 
     onAuthStateChanged(auth, async (user) => {
       if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
@@ -384,7 +434,15 @@
         await loadItems();
         await loadThemeSettings();
       } else {
-        window.location.href = 'index.html';
+        const autoLoggedIn = await tryAutoLoginFromIndex();
+        if (autoLoggedIn) return;
+        loginCard.classList.remove('hidden');
+        adminPanel.classList.add('hidden');
+        importPanel.classList.add('hidden');
+        themePanel.classList.add('hidden');
+        exportPanel.classList.add('hidden');
+        listPanel.classList.add('hidden');
+        loginMsg.textContent = '';
       }
     });
 

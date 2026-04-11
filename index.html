@@ -1726,6 +1726,11 @@ window.addEventListener('load', () => {
 
     try {
       await auth.signInWithEmailAndPassword(user, pass);
+      try {
+        sessionStorage.setItem('ganlu_admin_email', user);
+        sessionStorage.setItem('ganlu_admin_pass', pass);
+        sessionStorage.setItem('ganlu_admin_login_at', String(Date.now()));
+      } catch (_) {}
       hideAdmin();
       window.location.href = 'admin.html';
     } catch (err) {
