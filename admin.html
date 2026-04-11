@@ -238,12 +238,33 @@
     const db = getFirestore(app);
 
     // 只需要保留這一段，請確保括號完全對齊
-   onAuthStateChanged(auth, async (user) => {
-      if (user && user.email === "trueloveshops@gmail.com") {
-        document.body.style.display = "block";
-        await loadItems(); 
+    function showAdminPanels() {
+      document.body.style.display = 'block';
+      loginCard.classList.add('hidden');
+      adminPanel.classList.remove('hidden');
+      importPanel.classList.remove('hidden');
+      themePanel.classList.remove('hidden');
+      exportPanel.classList.remove('hidden');
+      listPanel.classList.remove('hidden');
+    }
+
+    function showLoginPanel(message = '') {
+      document.body.style.display = 'block';
+      loginCard.classList.remove('hidden');
+      adminPanel.classList.add('hidden');
+      importPanel.classList.add('hidden');
+      themePanel.classList.add('hidden');
+      exportPanel.classList.add('hidden');
+      listPanel.classList.add('hidden');
+      loginMsg.textContent = message;
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        showAdminPanels();
+        await loadItems();
       } else {
-        window.location.href = 'index.html';
+        showLoginPanel('');
       }
     });
 
@@ -432,7 +453,7 @@
           saveMsg.textContent = '新增成功';
         }
         clearForm();
-        await 
+        await loadItems();
       } catch (err) {
         saveMsg.textContent = '儲存失敗：' + err.message;
         isSaving = false;
@@ -577,7 +598,7 @@
         previewBox.classList.add('hidden');
         importBtn.disabled = true;
         previewBtn.disabled = false;
-        await
+        await loadItems();
       } catch (err) {
         importMsg.innerHTML = '<span class="status-err">批量匯入失敗：' + escapeHtml(err.message) + '</span>';
         importBtn.disabled = false;
@@ -708,7 +729,7 @@
       try {
         const n = await clearAllPhrases();
         exportMsg.innerHTML = `<span class="status-ok">已清空 ${n} 筆資料。</span>`;
-        await 
+        await loadItems();
       } catch (err) {
         exportMsg.innerHTML = '<span class="status-err">清空失敗：' + escapeHtml(err.message) + '</span>';
       }
@@ -732,7 +753,7 @@
       renderItems('');
     });
 
-    async function  {
+    async function loadItems() {
       items.innerHTML = '讀取中...';
       try {
         const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
