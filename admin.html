@@ -235,7 +235,14 @@
 
     const app = initializeApp(FIREBASE_CONFIG);
     const auth = getAuth(app);
-    const db = getFirestore(app);
+    onAuthStateChanged(auth, (user) => {
+      if (user && user.email === "trueloveshops@gmail.com") {
+        document.body.style.display = "block";
+        
+      } else {
+        window.location.href = 'index.html';
+      }
+    });
 
     const loginCard = document.getElementById('loginCard');
     const adminPanel = document.getElementById('adminPanel');
@@ -371,7 +378,7 @@
         }
       });
     });
-    logoutBtn.addEventListener('click', async () => { await signOut(auth); });
+    logoutBtn.addEventListener('click', async () => { await signOut(auth); window.location.href = 'index.html'; });
 
     onAuthStateChanged(auth, async (user) => {
       if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
@@ -381,15 +388,10 @@
         themePanel.classList.remove('hidden');
         exportPanel.classList.remove('hidden');
         listPanel.classList.remove('hidden');
-        await loadItems();
+        await 
         await loadThemeSettings();
       } else {
-        loginCard.classList.remove('hidden');
-        adminPanel.classList.add('hidden');
-        importPanel.classList.add('hidden');
-        themePanel.classList.add('hidden');
-        exportPanel.classList.add('hidden');
-        listPanel.classList.add('hidden');
+        window.location.href = 'index.html';
       }
     });
 
@@ -441,7 +443,7 @@
           saveMsg.textContent = '新增成功';
         }
         clearForm();
-        await loadItems();
+        await 
       } catch (err) {
         saveMsg.textContent = '儲存失敗：' + err.message;
         isSaving = false;
@@ -586,7 +588,7 @@
         previewBox.classList.add('hidden');
         importBtn.disabled = true;
         previewBtn.disabled = false;
-        await loadItems();
+        await
       } catch (err) {
         importMsg.innerHTML = '<span class="status-err">批量匯入失敗：' + escapeHtml(err.message) + '</span>';
         importBtn.disabled = false;
@@ -717,7 +719,7 @@
       try {
         const n = await clearAllPhrases();
         exportMsg.innerHTML = `<span class="status-ok">已清空 ${n} 筆資料。</span>`;
-        await loadItems();
+        await 
       } catch (err) {
         exportMsg.innerHTML = '<span class="status-err">清空失敗：' + escapeHtml(err.message) + '</span>';
       }
@@ -741,7 +743,7 @@
       renderItems('');
     });
 
-    async function loadItems() {
+    async function  {
       items.innerHTML = '讀取中...';
       try {
         const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
@@ -816,7 +818,7 @@
           const id = btn.dataset.del;
           if (!confirm('確定要刪除這筆資料嗎？')) return;
           await deleteDoc(doc(db, 'phrases', id));
-          await loadItems();
+          await 
         });
       });
     }
