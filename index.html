@@ -948,12 +948,104 @@ function getRandomIndex(max) {
   return Math.floor(Math.random() * max);
 }
 
+const QUOTE_ROTATION_STORAGE_KEY = 'ganlu_quote_rotation_v3';
+
+function getTodayKey() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function quoteSignature(item = {}) {
+  return [
+    String(item.content || '').trim(),
+    String(item.date || '').trim(),
+    String(item.url || '').trim()
+  ].join('||');
+}
+
+function readQuoteRotationState() {
+  try {
+    const raw = localStorage.getItem(QUOTE_ROTATION_STORAGE_KEY);
+    if (!raw) return { date: '', seen: [], currentSignature: '' };
+    const parsed = JSON.parse(raw);
+    return {
+      date: String(parsed?.date || ''),
+      seen: Array.isArray(parsed?.seen) ? parsed.seen.map(v => String(v || '')).filter(Boolean) : [],
+      currentSignature: String(parsed?.currentSignature || '')
+    };
+  } catch (e) {
+    return { date: '', seen: [], currentSignature: '' };
+  }
+}
+
+function writeQuoteRotationState(state) {
+  try {
+    localStorage.setItem(QUOTE_ROTATION_STORAGE_KEY, JSON.stringify({
+      date: String(state?.date || ''),
+      seen: Array.isArray(state?.seen) ? state.seen.map(v => String(v || '')).filter(Boolean) : [],
+      currentSignature: String(state?.currentSignature || '')
+    }));
+  } catch (e) {
+    console.warn('儲存法語輪播狀態失敗：', e);
+  }
+}
+
+function applyDailyQuoteRotation(forceRefresh = false) {
+  if (!QUOTES.length) {
+    currentQuoteIndex = 0;
+    return 0;
+  }
+
+  const todayKey = getTodayKey();
+  const signatures = QUOTES.map(quoteSignature);
+  const validSignatureSet = new Set(signatures);
+  const state = readQuoteRotationState();
+
+  let seen = state.seen.filter(sig => validSignatureSet.has(sig));
+  let currentSignature = validSignatureSet.has(state.currentSignature) ? state.currentSignature : '';
+
+  if (!forceRefresh && state.date === todayKey && currentSignature) {
+    const currentIndex = signatures.indexOf(currentSignature);
+    if (currentIndex >= 0) {
+      currentQuoteIndex = currentIndex;
+      return currentIndex;
+    }
+  }
+
+  let unseen = QUOTES.filter(item => !seen.includes(quoteSignature(item)));
+
+  if (!unseen.length) {
+    seen = [];
+    unseen = [...QUOTES];
+  }
+
+  const nextItem = prioritizeLatestQuote(unseen)[0] || QUOTES[0];
+  const nextSignature = quoteSignature(nextItem);
+  const nextIndex = signatures.indexOf(nextSignature);
+
+  if (!seen.includes(nextSignature)) {
+    seen.push(nextSignature);
+  }
+
+  writeQuoteRotationState({
+    date: todayKey,
+    seen,
+    currentSignature: nextSignature
+  });
+
+  currentQuoteIndex = nextIndex >= 0 ? nextIndex : 0;
+  return currentQuoteIndex;
+}
+
 function renderImmediateFallback() {
   const localQuotes = getValidLocalQuotes();
   if (!localQuotes.length) return;
 
   QUOTES = localQuotes;
-  currentQuoteIndex = 0;
+  applyDailyQuoteRotation();
   renderQuote();
 }
 
@@ -1030,16 +1122,8 @@ function subscribeFirebaseSingleSource() {
     const orderedRows = prioritizeLatestQuote(rows);
 
     if (orderedRows.length) {
-      const previouslyShownContent = QUOTES[currentQuoteIndex]?.content || '';
       QUOTES = orderedRows;
-
-      if (!previouslyShownContent) {
-        currentQuoteIndex = 0;
-      } else {
-        const matchedIndex = QUOTES.findIndex(item => item.content === previouslyShownContent);
-        currentQuoteIndex = matchedIndex >= 0 ? matchedIndex : 0;
-      }
-
+      applyDailyQuoteRotation();
       renderQuote();
     } else if (!QUOTES.length) {
       console.warn('Firestore phrases 集合為空，且內建法語也為空。');
@@ -1080,15 +1164,6 @@ function updateDateTime() {
 updateDateTime();
 setInterval(updateDateTime, 1000);
 subscribeFirebaseSingleSource();
-
-function dailyQuoteIndex() {
-  const start = new Date(2026,0,1);
-  const today = new Date();
-  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const diff = Math.floor((todayOnly - start)/86400000);
-  return ((diff % QUOTES.length) + QUOTES.length) % QUOTES.length;
-}
-currentQuoteIndex = 0;
 
 function renderQuote() {
   if (!QUOTES.length) {
@@ -1612,21 +1687,26 @@ window.addEventListener('load', () => {
 
   // 2. 這是最重要的登錄邏輯：密碼對了就「直接變身」
  function loginSystem() {
-  const user = document.getElementById('adminUser').value;
-  const pass = document.getElementById('adminPass').value;
+    // 1. 抓取輸入的帳密（加上 .trim() 防止空白鍵出錯）
+    const user = document.getElementById('adminUser').value.trim();
+    const pass = document.getElementById('adminPass').value.trim();
 
-  if (user === "trueloveshops@gmail.com" && pass === "@buddha88") {
-    alert("驗證成功！將在【新分頁】開啟管理後台...");
-    
-    // 重點：這行會直接在瀏覽器開一個新分頁，不會影響原本的首頁
-    window.open('admin.html', '_blank'); 
-    
-    // 同時關閉首頁的登入小視窗
-    hideAdmin(); 
-  } else {
-      alert("帳號或密碼錯誤！");
+    // 2. 在這裡修改您的帳號和密碼
+    if (user === "trueloveshops@gmail.com" && pass === "@buddha88") {
+      alert("驗證成功！即將在【新分頁】開啟管理系統...");
+      
+      /** * 重點關鍵：
+       * 請確保您的管理後台檔案名稱是 admin.html（由 admin.txt 改名而來）
+       * 且與 index.txt 放在同一個資料夾。
+       */
+      window.open('admin.html', '_blank'); 
+      
+      // 3. 關閉首頁的登入小視窗，讓歡迎公告和播放器留在原地
+      hideAdmin(); 
+    } else {
+      alert("帳號或密碼錯誤！\n您輸入的是：" + user + " / " + pass);
     }
-  } 
+ }
 </script>
 </body>
 </html>
