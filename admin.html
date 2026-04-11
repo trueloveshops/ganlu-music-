@@ -298,6 +298,15 @@
     const searchStatus = document.getElementById('searchStatus');
     const items = document.getElementById('items');
 
+    email.value = ADMIN_EMAIL;
+    let authReadyHandled = false;
+    const bootFallbackTimer = window.setTimeout(() => {
+      if (authReadyHandled) return;
+      document.body.classList.remove('auth-pending');
+      loginCard.classList.remove('hidden');
+      loginMsg.textContent = '請登入管理員帳號。';
+    }, 1800);
+
     let isSaving = false;
     let isLoggingIn = false;
     let parsedRows = [];
@@ -357,6 +366,7 @@
           await signOut(auth);
           loginMsg.textContent = '這不是管理員帳號。';
         } else {
+          sessionStorage.setItem('ganlu_admin_authenticated', '1');
           loginMsg.textContent = '';
         }
       } catch (err) {
@@ -375,21 +385,32 @@
         }
       });
     });
-    logoutBtn.addEventListener('click', async () => { await signOut(auth); window.location.href = 'index.html'; });
+    logoutBtn.addEventListener('click', async () => { sessionStorage.removeItem('ganlu_admin_authenticated'); await signOut(auth); window.location.href = 'index.html'; });
 
     onAuthStateChanged(auth, async (user) => {
+      authReadyHandled = true;
+      window.clearTimeout(bootFallbackTimer);
+      document.body.classList.remove('auth-pending');
+
       if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        sessionStorage.setItem('ganlu_admin_authenticated', '1');
         loginCard.classList.add('hidden');
         adminPanel.classList.remove('hidden');
         importPanel.classList.remove('hidden');
         themePanel.classList.remove('hidden');
         exportPanel.classList.remove('hidden');
         listPanel.classList.remove('hidden');
-        document.body.classList.remove('auth-pending');
         await loadItems();
         await loadThemeSettings();
       } else {
-        window.location.replace('index.html');
+        sessionStorage.removeItem('ganlu_admin_authenticated');
+        loginCard.classList.remove('hidden');
+        adminPanel.classList.add('hidden');
+        importPanel.classList.add('hidden');
+        themePanel.classList.add('hidden');
+        exportPanel.classList.add('hidden');
+        listPanel.classList.add('hidden');
+        loginMsg.textContent = '請登入管理員帳號。';
       }
     });
 

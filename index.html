@@ -1722,8 +1722,9 @@ window.addEventListener('load', () => {
 
     try {
       await auth.signInWithEmailAndPassword(user, pass);
+      sessionStorage.setItem('ganlu_admin_authenticated', '1');
       hideAdmin();
-      window.location.href = 'admin.html';
+      window.location.assign('admin.html');
     } catch (err) {
       console.warn('管理後台登入失敗：', err);
       alert("登入失敗，請確認 Firebase 管理員帳號密碼是否一致。");
