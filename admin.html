@@ -229,7 +229,6 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    const loginCard = document.getElementById('loginCard');
     const adminPanel = document.getElementById('adminPanel');
     const importPanel = document.getElementById('importPanel');
     const themePanel = document.getElementById('themePanel');
@@ -293,17 +292,7 @@
     let bridgeLoginInProgress = false;
     let adminDataLoaded = false;
 
-    function revealLoginCard(message = '') {
-      loginCard.classList.remove('hidden');
-      adminPanel.classList.add('hidden');
-      importPanel.classList.add('hidden');
-      themePanel.classList.add('hidden');
-      exportPanel.classList.add('hidden');
-      listPanel.classList.add('hidden');
-      loginMsg.textContent = message;
-    }
-
-    async function tryBridgeLogin() {
+      async function tryBridgeLogin() {
       let raw = null;
       try {
         raw = localStorage.getItem('ganlu_admin_bridge');
@@ -427,23 +416,24 @@
     });
 
     onAuthStateChanged(auth, async (user) => {
-      if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-        loginCard.classList.add('hidden');
-        adminPanel.classList.remove('hidden');
-        importPanel.classList.remove('hidden');
-        themePanel.classList.remove('hidden');
-        exportPanel.classList.remove('hidden');
-        listPanel.classList.remove('hidden');
-        if (!adminDataLoaded) {
-          adminDataLoaded = true;
-          await loadItems();
-          await loadThemeSettings();
-        }
-      } else if (!bridgeLoginInProgress) {
-        adminDataLoaded = false;
-        revealLoginCard('');
-      }
-    });
+  if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    adminPanel.classList.remove('hidden');
+    importPanel.classList.remove('hidden');
+    themePanel.classList.remove('hidden');
+    exportPanel.classList.remove('hidden');
+    listPanel.classList.remove('hidden');
+
+    if (!adminDataLoaded) {
+      adminDataLoaded = true;
+      await loadItems();
+      await loadThemeSettings();
+    }
+  } else if (!bridgeLoginInProgress) {
+    adminDataLoaded = false;
+    alert('請先從首頁登入');
+    window.location.href = 'index.html';
+  }
+});
 
     tryBridgeLogin();
 
