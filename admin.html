@@ -6,6 +6,9 @@
   <title>甘露法語後台管理（最終穩定版）</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 20px; color: #222; }
+    body.auth-pending .wrap { display:none; }
+    .booting { display:none; max-width:1120px; margin:auto; padding:40px 20px; color:#555; text-align:center; }
+    body.auth-pending .booting { display:block; }
     .wrap { max-width: 1120px; margin: auto; }
     .card { background: #fff; border-radius: 14px; padding: 18px; margin-bottom: 18px; box-shadow: 0 4px 18px rgba(0,0,0,0.06); }
     h1, h2, h3 { margin-top: 0; }
@@ -42,7 +45,8 @@
     }
   </style>
 </head>
-<body>
+<body class="auth-pending">
+  <div class="booting">驗證登入狀態中…</div>
   <div class="wrap">
     <h1>甘露法語後台管理</h1>
 
@@ -381,10 +385,11 @@
         themePanel.classList.remove('hidden');
         exportPanel.classList.remove('hidden');
         listPanel.classList.remove('hidden');
+        document.body.classList.remove('auth-pending');
         await loadItems();
         await loadThemeSettings();
       } else {
-        window.location.href = 'index.html';
+        window.location.replace('index.html');
       }
     });
 
