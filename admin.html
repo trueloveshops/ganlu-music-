@@ -802,7 +802,7 @@
         });
       });
 
-    document.querySelectorAll('[data-del]').forEach(btn => {
+   document.querySelectorAll('[data-del]').forEach(btn => {
         btn.addEventListener('click', async () => {
           const id = btn.dataset.del;
           if (!confirm('確定要刪除這筆資料嗎？')) return;
@@ -810,7 +810,7 @@
           await loadItems(); 
         });
       });
-  
+    });
 
     function csvEscape(str) {
       if (str.includes('"') || str.includes(',') || str.includes('\n')) {
