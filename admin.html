@@ -45,8 +45,15 @@
 <body>
   <div class="wrap">
     <h1>甘露法語後台管理</h1>
+    <div class="card" id="authStatusCard">
+      <h2 id="authStatusTitle">管理員登入中</h2>
+      <p id="authStatusMsg">驗證首頁登入資料中…</p>
+      <div id="authStatusActions" class="hidden">
+        <button class="btn-gray" type="button" id="backHomeBtn">回首頁</button>
+      </div>
+    </div>
 
-    <div class="card" id="loginCard">
+    <div class="card hidden" id="loginCard">
       <h2>管理員登入</h2>
       <input id="email" type="email" placeholder="Email" />
       <input id="password" type="password" placeholder="Password" />
@@ -249,6 +256,11 @@
     const loginBtn = document.getElementById('loginBtn');
     const logoutBtn = document.getElementById('logoutBtn');
     const loginMsg = document.getElementById('loginMsg');
+    const authStatusCard = document.getElementById('authStatusCard');
+    const authStatusTitle = document.getElementById('authStatusTitle');
+    const authStatusMsg = document.getElementById('authStatusMsg');
+    const authStatusActions = document.getElementById('authStatusActions');
+    const backHomeBtn = document.getElementById('backHomeBtn');
 
     const docId = document.getElementById('docId');
     const textEl = document.getElementById('text');
@@ -298,9 +310,6 @@
     let isLoggingIn = false;
     let parsedRows = [];
     let allItems = [];
-    let bridgeLoginInProgress = false;
-    let bridgeAttempted = false;
-    let adminDataLoaded = false;
 
     function buildUrl(base, filename) {
       const value = (filename || '').trim();
@@ -345,46 +354,32 @@
       };
     }
 
-    async function tryBridgeLogin() {
-      if (bridgeAttempted) return false;
-      bridgeAttempted = true;
-      let raw = null;
-      try { raw = localStorage.getItem('ganlu_admin_bridge'); } catch (err) { raw = null; }
-      if (!raw) return false;
+    function showStatus(title, message, showBack = false) {
+      authStatusTitle.textContent = title;
+      authStatusMsg.textContent = message;
+      authStatusActions.classList.toggle('hidden', !showBack);
+    }
 
-      let payload = null;
-      try { payload = JSON.parse(raw); } catch (err) {
-        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
-        return false;
-      }
+    function showAdminPanels() {
+      authStatusCard.classList.add('hidden');
+      loginCard.classList.add('hidden');
+      adminPanel.classList.remove('hidden');
+      importPanel.classList.remove('hidden');
+      themePanel.classList.remove('hidden');
+      exportPanel.classList.remove('hidden');
+      listPanel.classList.remove('hidden');
+    }
 
-      const emailValue = String(payload?.email || '').trim();
-      const passwordValue = String(payload?.password || '').trim();
-      const ts = Number(payload?.ts || 0);
-      const expired = !ts || Math.abs(Date.now() - ts) > 2 * 60 * 1000;
-      if (!emailValue || !passwordValue || expired) {
-        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
-        return false;
-      }
+    function hideAdminPanels() {
+      adminPanel.classList.add('hidden');
+      importPanel.classList.add('hidden');
+      themePanel.classList.add('hidden');
+      exportPanel.classList.add('hidden');
+      listPanel.classList.add('hidden');
+    }
 
-      email.value = emailValue;
-      password.value = passwordValue;
-      bridgeLoginInProgress = true;
-      loginMsg.textContent = '登入交接中…';
-      loginBtn.disabled = true;
-      try {
-        const cred = await signInWithEmailAndPassword(auth, emailValue, passwordValue);
-        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
-        return (cred.user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
-      } catch (err) {
-        console.warn('登入交接失敗：', err);
-        try { localStorage.removeItem('ganlu_admin_bridge'); } catch (_) {}
-        loginMsg.textContent = '';
-        return false;
-      } finally {
-        bridgeLoginInProgress = false;
-        loginBtn.disabled = false;
-      }
+    function clearBridge() {
+      try { localStorage.removeItem('ganlu_admin_bridge'); } catch (err) {}
     }
 
     async function loginNow() {
@@ -407,6 +402,12 @@
         loginBtn.disabled = false;
       }
     }
+
+    backHomeBtn.addEventListener('click', () => {
+      clearBridge();
+      window.location.href = 'index.html';
+    });
+
     loginBtn.addEventListener('click', loginNow);
     [email, password].forEach(el => {
       el.addEventListener('keydown', (e) => {
@@ -416,44 +417,58 @@
         }
       });
     });
+
     logoutBtn.addEventListener('click', async () => {
-      try { localStorage.removeItem('ganlu_admin_bridge'); } catch (err) {}
+      clearBridge();
       await signOut(auth);
       window.location.href = 'index.html';
     });
-    onAuthStateChanged(auth, async (user) => {
-      if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-        loginCard.classList.add('hidden');
-        adminPanel.classList.remove('hidden');
-        importPanel.classList.remove('hidden');
-        themePanel.classList.remove('hidden');
-        exportPanel.classList.remove('hidden');
-        listPanel.classList.remove('hidden');
-        loginMsg.textContent = '';
-        if (!adminDataLoaded) {
-          adminDataLoaded = true;
-          await loadItems();
-          await loadThemeSettings();
-        }
-      } else {
-        adminDataLoaded = false;
-        adminPanel.classList.add('hidden');
-        importPanel.classList.add('hidden');
-        themePanel.classList.add('hidden');
-        exportPanel.classList.add('hidden');
-        listPanel.classList.add('hidden');
-        loginCard.classList.remove('hidden');
-        if (!bridgeLoginInProgress && !bridgeAttempted) {
-          loginMsg.textContent = '驗證登入狀態中…';
-          const ok = await tryBridgeLogin();
-          if (!ok && !auth.currentUser) {
-            loginMsg.textContent = '';
-          }
-        } else if (!bridgeLoginInProgress && !auth.currentUser) {
-          loginMsg.textContent = '';
+
+    async function bootstrapAdminAuth() {
+      hideAdminPanels();
+      showStatus('管理員登入中', '驗證首頁登入資料中…');
+
+      let bridge = null;
+      try {
+        bridge = JSON.parse(localStorage.getItem('ganlu_admin_bridge') || 'null');
+      } catch (err) {
+        bridge = null;
+      }
+
+      const now = Date.now();
+      const hasFreshBridge = bridge &&
+        typeof bridge.email === 'string' &&
+        typeof bridge.password === 'string' &&
+        typeof bridge.ts === 'number' &&
+        Math.abs(now - bridge.ts) <= 2 * 60 * 1000;
+
+      if (hasFreshBridge) {
+        try {
+          await signInWithEmailAndPassword(auth, bridge.email.trim(), bridge.password.trim());
+          clearBridge();
+          return;
+        } catch (err) {
+          clearBridge();
+          console.warn('首頁交接登入失敗：', err);
+          showStatus('無法登入管理後台', '首頁登入資料已失效，請回首頁重新登入。', true);
+          return;
         }
       }
-    });
+
+      onAuthStateChanged(auth, async (user) => {
+        if (user && (user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+          showAdminPanels();
+          if (!allItems.length) {
+            await loadItems();
+            await loadThemeSettings();
+          }
+        } else {
+          showStatus('請先從首頁登入', '這個後台已改為只接受首頁登入後進入。', true);
+        }
+      });
+    }
+
+    bootstrapAdminAuth();
 
     function clearForm() {
       docId.value = '';
