@@ -188,12 +188,25 @@ body {
   content:""; display:block; width:88px; height:1px; background:rgba(255,255,255,.25);
 }
 .decor-lotus { width:16px; height:16px; opacity:.95; }
+.quote-image{
+  display:block;
+  width:100%;
+  max-height:240px;
+  object-fit:contain;
+  border-radius:18px;
+  margin:0 auto 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.16);
+}
+.quote-image.hidden{display:none}
 .quote-text {
   flex:1; min-height:0; overflow:auto; scrollbar-width:none;
   text-align:center; white-space:pre-wrap;
   font-size:clamp(16px, 3.15vw, 18px); line-height:1.9;
   text-shadow:0 1px 4px rgba(0,0,0,.12);
   opacity:1; transition:opacity 1.6s ease;
+}
+.quote-text.image-only{
+  display:none;
 }
 .quote-text::-webkit-scrollbar{display:none}
 .source {
@@ -492,6 +505,7 @@ html, body {
         <path d="M12 20c-6-2-7-7-4-12 5 2 7 5 4 12Z" fill="none" stroke="rgba(245,251,251,.8)" stroke-width="1.4"/>
       </svg>
     </div>
+    <img id="quoteImage" class="quote-image hidden" alt="法語圖片">
     <div class="quote-text" id="quoteText">載入中…</div>
     <a id="sourceLink" class="source disabled" href="#" target="_blank" rel="noopener noreferrer"></a>
     <div class="quote-nav" aria-label="法語切換">
@@ -568,6 +582,7 @@ if (initialOuterBlurBg) {
 
 const datetimeEl = document.getElementById('datetime');
 const quoteText = document.getElementById('quoteText');
+const quoteImage = document.getElementById('quoteImage');
 const sourceLink = document.getElementById('sourceLink');
 const searchInput = document.getElementById('searchInput');
 const searchPanel = document.getElementById('searchPanel');
@@ -891,6 +906,14 @@ function normalizeQuoteDoc(data = {}) {
     ''
   ).trim();
 
+  const imageFile = String(data.imageFile ?? data.image ?? '').trim();
+  let imageUrl = String(data.imageUrl ?? data.image_url ?? '').trim();
+  if (!imageUrl && imageFile) {
+    imageUrl = /^https?:\/\//i.test(imageFile)
+      ? imageFile
+      : IMAGE_BASE + encodeURIComponent(imageFile).replace(/%2F/g, '/');
+  }
+
   let published = true;
   if (typeof data.published !== 'undefined') {
     published = data.published !== false && data.published !== 'false' && data.published !== 0;
@@ -900,6 +923,8 @@ function normalizeQuoteDoc(data = {}) {
     content,
     date,
     url,
+    imageFile,
+    imageUrl,
     published,
     createdAt: data.createdAt ?? data.created_at ?? data.updatedAt ?? data.updated_at ?? null
   };
@@ -951,7 +976,7 @@ function getValidLocalQuotes() {
   if (!Array.isArray(LEGACY_QUOTES)) return [];
   return LEGACY_QUOTES
     .map(normalizeQuoteDoc)
-    .filter(item => item.content);
+    .filter(item => item.content || item.imageUrl);
 }
 
 function getRandomIndex(max) {
@@ -963,8 +988,9 @@ const QUOTE_ROTATION_STORAGE_KEY = 'ganlu_quote_rotation_v4';
 const FIREBASE_QUOTE_WAIT_MS = 1200;
 let firebaseQuoteResolved = false;
 let firebaseFallbackTimer = null;
-const QUOTE_CACHE_STORAGE_KEY = 'ganlu_quotes_cache_v1';
+const QUOTE_CACHE_STORAGE_KEY = 'ganlu_quotes_cache_v2';
 const APPEARANCE_CACHE_STORAGE_KEY = 'ganlu_appearance_cache_v1';
+const IMAGE_BASE = 'https://trueloveshops.github.io/ganlu-music-/images/';
 
 
 function saveQuoteCache(items = []) {
@@ -973,6 +999,8 @@ function saveQuoteCache(items = []) {
       content: String(item.content || ''),
       date: String(item.date || ''),
       url: String(item.url || ''),
+      imageFile: String(item.imageFile || ''),
+      imageUrl: String(item.imageUrl || ''),
       published: item.published !== false,
       createdAt: getCreatedAtMs(item.createdAt)
     }));
@@ -988,7 +1016,7 @@ function readQuoteCache() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeQuoteDoc).filter(item => item.content && item.published !== false);
+    return parsed.map(normalizeQuoteDoc).filter(item => (item.content || item.imageUrl) && item.published !== false);
   } catch (e) {
     return [];
   }
@@ -1167,6 +1195,9 @@ function subscribeFirebaseSingleSource() {
 
   const db = initFirebaseSingleSource();
 
+  quoteImage.removeAttribute('src');
+  quoteImage.classList.add('hidden');
+  quoteText.classList.remove('image-only');
   quoteText.textContent = '載入今日法語…';
   sourceLink.textContent = '';
   sourceLink.removeAttribute('href');
@@ -1254,7 +1285,10 @@ currentQuoteIndex = 0;
 function renderQuote() {
   if (!QUOTES.length) {
     clearTimeout(renderQuote._timer);
+    quoteImage.removeAttribute('src');
+    quoteImage.classList.add('hidden');
     quoteText.textContent = '目前沒有法語資料';
+    quoteText.classList.remove('image-only');
     sourceLink.textContent = '';
     sourceLink.removeAttribute('href');
     sourceLink.classList.add('disabled');
@@ -1266,7 +1300,25 @@ function renderQuote() {
   quoteText.style.opacity = '0';
 
   renderQuote._timer = setTimeout(() => {
-    quoteText.textContent = item.content || '';
+    const hasImage = !!item.imageUrl;
+    const hasText = !!(item.content || '').trim();
+
+    if (hasImage) {
+      quoteImage.src = item.imageUrl;
+      quoteImage.classList.remove('hidden');
+    } else {
+      quoteImage.removeAttribute('src');
+      quoteImage.classList.add('hidden');
+    }
+
+    if (hasText) {
+      quoteText.textContent = item.content || '';
+      quoteText.classList.remove('image-only');
+    } else {
+      quoteText.textContent = '';
+      quoteText.classList.add('image-only');
+    }
+
     quoteText.scrollTop = 0;
     quoteText.style.opacity = '1';
   }, 80);

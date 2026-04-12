@@ -268,6 +268,15 @@
           <button id="resetBtn" class="btn gray" type="button">清空</button>
         </div>
         <div id="saveMsg" class="msg"></div>
+
+        <div class="live-preview-wrap">
+          <div class="live-preview-title">即時預覽</div>
+          <div class="live-preview-card">
+            <img id="livePreviewImage" class="live-preview-image" alt="法語圖片預覽">
+            <div id="livePreviewText" class="live-preview-text empty">尚未輸入法語文字或圖片</div>
+            <div id="livePreviewMeta" class="live-preview-meta">日期 / 來源、圖片檔名會顯示在這裡</div>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -445,6 +454,9 @@
     const saveBtn = document.getElementById('saveBtn');
     const resetBtn = document.getElementById('resetBtn');
     const saveMsg = document.getElementById('saveMsg');
+    const livePreviewImage = document.getElementById('livePreviewImage');
+    const livePreviewText = document.getElementById('livePreviewText');
+    const livePreviewMeta = document.getElementById('livePreviewMeta');
 
     const csvFile = document.getElementById('csvFile');
     const previewBtn = document.getElementById('previewBtn');
@@ -559,6 +571,45 @@
         updatedAt: serverTimestamp()
       };
     }
+    function updateLivePreview() {
+      const payload = payloadFromFields({
+        text: textEl.value,
+        date: dateEl.value,
+        url: urlEl.value,
+        audioFile: audioFile.value,
+        imageFile: imageFile.value,
+        order: orderEl.value,
+        published: published.value
+      });
+
+      const hasText = !!payload.text;
+      const hasImage = !!payload.imageUrl;
+      if (hasImage) {
+        livePreviewImage.src = payload.imageUrl;
+        livePreviewImage.style.display = 'block';
+      } else {
+        livePreviewImage.removeAttribute('src');
+        livePreviewImage.style.display = 'none';
+      }
+
+      if (hasText) {
+        livePreviewText.textContent = payload.text;
+        livePreviewText.classList.remove('empty');
+      } else if (hasImage) {
+        livePreviewText.textContent = '此筆資料將以圖片法語顯示';
+        livePreviewText.classList.add('empty');
+      } else {
+        livePreviewText.textContent = '尚未輸入法語文字或圖片';
+        livePreviewText.classList.add('empty');
+      }
+
+      const metaParts = [];
+      if (payload.date) metaParts.push(`日期 / 來源：${payload.date}`);
+      if (payload.imageFile) metaParts.push(`圖片：${payload.imageFile}`);
+      if (payload.audioFile) metaParts.push(`音檔：${payload.audioFile}`);
+      if (payload.url) metaParts.push(`連結：${payload.url}`);
+      livePreviewMeta.textContent = metaParts.length ? metaParts.join(' ｜ ') : '日期 / 來源、圖片檔名會顯示在這裡';
+    }
     function clearForm() {
       docId.value = '';
       textEl.value = '';
@@ -572,6 +623,7 @@
       saveBtn.disabled = false;
       saveBtn.textContent = '儲存';
       setMessage(saveMsg, '');
+      updateLivePreview();
     }
     function fillForm(id, item) {
       docId.value = id;
@@ -583,6 +635,7 @@
       orderEl.value = Number(item.order || 0);
       published.value = item.published === false ? 'false' : 'true';
       setMessage(saveMsg, '已載入資料，可直接修改後儲存。', 'ok');
+      updateLivePreview();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     function sanitizeExportRecord(item) {
@@ -945,6 +998,19 @@
     resetBtn.addEventListener('click', clearForm);
     bindDropZone(audioDropZone, audioFile, /\.(mp3|m4a|wav|ogg|flac)$/i);
     bindDropZone(imageDropZone, imageFile, /\.(jpg|jpeg|png|webp|gif)$/i);
+
+    [textEl, dateEl, urlEl, audioFile, imageFile, orderEl, published].forEach(el => {
+      el.addEventListener('input', updateLivePreview);
+      el.addEventListener('change', updateLivePreview);
+    });
+    livePreviewImage.addEventListener('error', () => {
+      livePreviewImage.style.display = 'none';
+      if (!textEl.value.trim()) {
+        livePreviewText.textContent = '找不到圖片，請確認圖片檔名與 images 資料夾是否一致';
+        livePreviewText.classList.add('empty');
+      }
+    });
+    updateLivePreview();
     backupAllBtn.addEventListener('click', downloadFullBackup);
     restoreBtn.addEventListener('click', restoreFromBackup);
 
