@@ -515,9 +515,11 @@
       if (/^https?:\/\//i.test(value)) return value;
       return base + encodeURIComponent(value).replace(/%2F/g, '/');
     }
-    function getTitleFromText(value) {
+    function getTitleFromText(value, fallback = '') {
       const t = String(value || '').trim();
-      return t ? t.slice(0, 20) : '未命名';
+      if (t) return t.slice(0, 20);
+      const f = String(fallback || '').trim();
+      return f ? f.slice(0, 20) : '未命名';
     }
     function hashString(str) {
       let hash = 5381;
@@ -538,15 +540,20 @@
     }
     function payloadFromFields(obj) {
       const textValue = String(obj.text || '').trim();
+      const dateValue = String(obj.date || '').trim();
+      const urlValue = String(obj.url || '').trim();
+      const audioFileValue = String(obj.audioFile || '').trim();
+      const imageFileValue = String(obj.imageFile || '').trim();
+      const fallbackTitle = imageFileValue || audioFileValue || dateValue || urlValue || '未命名';
       return {
-        title: getTitleFromText(textValue),
+        title: getTitleFromText(textValue, fallbackTitle),
         text: textValue,
-        date: String(obj.date || '').trim(),
-        url: String(obj.url || '').trim(),
-        audioFile: String(obj.audioFile || '').trim(),
-        imageFile: String(obj.imageFile || '').trim(),
-        audioUrl: buildUrl(AUDIO_BASE, obj.audioFile || ''),
-        imageUrl: buildUrl(IMAGE_BASE, obj.imageFile || ''),
+        date: dateValue,
+        url: urlValue,
+        audioFile: audioFileValue,
+        imageFile: imageFileValue,
+        audioUrl: buildUrl(AUDIO_BASE, audioFileValue),
+        imageUrl: buildUrl(IMAGE_BASE, imageFileValue),
         order: Number(obj.order || 0),
         published: normalizePublished(obj.published),
         updatedAt: serverTimestamp()
@@ -944,16 +951,20 @@
     saveBtn.addEventListener('click', async () => {
       if (isSaving) return;
       const textValue = textEl.value.trim();
-      if (!textValue) {
-        setMessage(saveMsg, '請填寫法語內容。', 'err');
+      const dateValue = dateEl.value.trim();
+      const urlValue = urlEl.value.trim();
+      const audioFileValue = audioFile.value.trim();
+      const imageFileValue = imageFile.value.trim();
+      if (!textValue && !dateValue && !urlValue && !audioFileValue && !imageFileValue) {
+        setMessage(saveMsg, '請至少填入法語、圖片、音檔、日期或網址其中一項。', 'err');
         return;
       }
       const payload = payloadFromFields({
         text: textValue,
-        date: dateEl.value,
-        url: urlEl.value,
-        audioFile: audioFile.value,
-        imageFile: imageFile.value,
+        date: dateValue,
+        url: urlValue,
+        audioFile: audioFileValue,
+        imageFile: imageFileValue,
         order: orderEl.value,
         published: published.value
       });
