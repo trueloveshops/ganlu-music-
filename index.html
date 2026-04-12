@@ -196,21 +196,6 @@ body {
   opacity:1; transition:opacity 1.6s ease;
 }
 .quote-text::-webkit-scrollbar{display:none}
-.quote-image{
-  display:block;
-  max-width:100%;
-  max-height:240px;
-  margin:0 auto 12px;
-  border-radius:14px;
-  object-fit:contain;
-  box-shadow:0 8px 24px rgba(0,0,0,.18);
-}
-.quote-image-only{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  min-height:100%;
-}
 .source {
   margin-top:16px; text-align:center; display:block;
   font-size:12px; color:rgba(246,252,252,.92); text-decoration:none;
@@ -909,13 +894,8 @@ function normalizeQuoteDoc(data = {}) {
   const imageFile = String(
     data.imageFile ??
     data.image ??
-    data.imagePath ??
-    ''
-  ).trim();
-
-  const imageUrl = String(
     data.imageUrl ??
-    data.image_url ??
+    data.img ??
     ''
   ).trim();
 
@@ -929,7 +909,6 @@ function normalizeQuoteDoc(data = {}) {
     date,
     url,
     imageFile,
-    imageUrl,
     published,
     createdAt: data.createdAt ?? data.created_at ?? data.updatedAt ?? data.updated_at ?? null
   };
@@ -981,7 +960,7 @@ function getValidLocalQuotes() {
   if (!Array.isArray(LEGACY_QUOTES)) return [];
   return LEGACY_QUOTES
     .map(normalizeQuoteDoc)
-    .filter(item => item.content || item.imageFile || item.imageUrl);
+    .filter(item => item.content);
 }
 
 function getRandomIndex(max) {
@@ -1003,8 +982,6 @@ function saveQuoteCache(items = []) {
       content: String(item.content || ''),
       date: String(item.date || ''),
       url: String(item.url || ''),
-      imageFile: String(item.imageFile || ''),
-      imageUrl: String(item.imageUrl || ''),
       published: item.published !== false,
       createdAt: getCreatedAtMs(item.createdAt)
     }));
@@ -1020,7 +997,7 @@ function readQuoteCache() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeQuoteDoc).filter(item => (item.content || item.imageFile || item.imageUrl) && item.published !== false);
+    return parsed.map(normalizeQuoteDoc).filter(item => item.content && item.published !== false);
   } catch (e) {
     return [];
   }
@@ -1053,8 +1030,7 @@ function quoteSignature(item = {}) {
   return [
     String(item.content || '').trim(),
     String(item.date || '').trim(),
-    String(item.url || '').trim(),
-    String(item.imageFile || item.imageUrl || '').trim()
+    String(item.url || '').trim()
   ].join('||');
 }
 
@@ -1169,7 +1145,7 @@ function sortQuotesForRotation(items = []) {
     const timeDiff = getCreatedAtMs(b.createdAt) - getCreatedAtMs(a.createdAt);
     if (timeDiff !== 0) return timeDiff;
 
-    return String(a.content || a.imageFile || '').localeCompare(String(b.content || b.imageFile || ''), 'zh-Hant');
+    return String(a.content || '').localeCompare(String(b.content || ''), 'zh-Hant');
   });
 }
 
@@ -1224,7 +1200,7 @@ function subscribeFirebaseSingleSource() {
       const raw = d.data() || {};
       const item = normalizeQuoteDoc(raw);
       item._order = Number(raw.order || 0);
-      if ((item.content || item.imageFile || item.imageUrl) && item.published !== false) rows.push(item);
+      if (item.content && item.published !== false) rows.push(item);
     });
 
     const orderedRows = prioritizeLatestQuote(rows);
@@ -1293,37 +1269,23 @@ function renderQuote() {
     sourceLink.classList.add('disabled');
     return;
   }
-  const item = QUOTES[currentQuoteIndex] || {content:'目前沒有法語資料',date:'',url:'',imageFile:'',imageUrl:''};
+  const item = QUOTES[currentQuoteIndex] || {content:'目前沒有法語資料',date:'',url:'',imageFile:''};
 
   clearTimeout(renderQuote._timer);
   quoteText.style.opacity = '0';
 
   renderQuote._timer = setTimeout(() => {
-    const imageSrc = String(item.imageUrl || '').trim() || (String(item.imageFile || '').trim()
-      ? (/^https?:\/\//i.test(String(item.imageFile || '').trim())
-          ? String(item.imageFile || '').trim()
-          : `images/${String(item.imageFile || '').trim().replace(/^\/+/, '')}`)
-      : '');
+    const imageValue = String(item.imageFile || '').trim();
+    const imageUrl = imageValue
+      ? (/^https?:\/\//i.test(imageValue)
+          ? imageValue
+          : `https://trueloveshops.github.io/ganlu-music-/images/${encodeURI(imageValue).replace(/%5C/g, '/')}`)
+      : '';
 
-    const safeText = String(item.content || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-      .replace(/\n/g, '<br>');
-
-    if (imageSrc || safeText) {
-      quoteText.innerHTML = `
-        <div class="${safeText ? '' : 'quote-image-only'}">
-          ${imageSrc ? `<img class="quote-image" src="${imageSrc}" alt="法語圖片" onerror="this.style.display='none'">` : ''}
-          ${safeText ? `<div>${safeText}</div>` : ''}
-        </div>
-      `;
-    } else {
-      quoteText.textContent = '目前沒有法語資料';
-    }
-
+    quoteText.innerHTML = `
+      ${imageUrl ? `<div style="margin-bottom:${item.content ? '12px' : '0'};"><img src="${imageUrl}" alt="法語圖片" style="max-width:100%; max-height:100%; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,.18); object-fit:contain;" onerror="this.style.display='none';"></div>` : ''}
+      ${item.content ? `<div>${escapeHtml(item.content)}</div>` : ''}
+    `;
     quoteText.scrollTop = 0;
     quoteText.style.opacity = '1';
   }, 80);
@@ -1646,8 +1608,7 @@ function renderSearchPanelResults() {
     const start = searchState.quotePage * SEARCH_PAGE_SIZE;
     const pageItems = qr.slice(start, start + SEARCH_PAGE_SIZE);
     pageItems.forEach(([idx,item]) => {
-      const displayText = item.content || item.imageFile || '圖片法語';
-      const short = displayText.length > 34 ? displayText.slice(0,34) + '…' : displayText;
+      const short = item.content.length > 34 ? item.content.slice(0,34) + '…' : item.content;
       html += `<div class="search-item" data-action="quote" data-index="${idx}"><div>${short}</div></div>`;
     });
     if (!pageItems.length) html = '<div class="search-item">找不到結果</div>';
@@ -1687,7 +1648,7 @@ function updateSearchResults() {
 
   searchState.quoteResults = [];
   QUOTES.forEach((item, idx) => {
-    if ((item.content || '').includes(q) || (item.date || '').includes(q) || (item.imageFile || '').includes(q)) searchState.quoteResults.push([idx, item]);
+    if ((item.content || '').includes(q) || (item.date || '').includes(q)) searchState.quoteResults.push([idx, item]);
   });
 
   searchState.trackResults = [];
