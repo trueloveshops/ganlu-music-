@@ -171,6 +171,15 @@
     .meta{font-size:13px;color:#667d95;line-height:1.7;white-space:pre-wrap}
     .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
     .small-link{word-break:break-all}
+    .drop-zone{
+      border:2px dashed #b9cde4;border-radius:16px;padding:14px 16px;margin-top:10px;
+      background:rgba(239,246,253,.78);color:#5b7594;text-align:center;font-size:14px;
+      transition:border-color .15s ease, background .15s ease, transform .15s ease;
+    }
+    .drop-zone.dragover{
+      border-color:#5e92e8;background:rgba(220,236,255,.95);transform:translateY(-1px);
+    }
+    .drop-zone strong{color:#325b86}
 
     @media (max-width: 860px){
       .grid,.grid-3{grid-template-columns:1fr}
@@ -230,11 +239,13 @@
             <label for="audioFile">音檔檔名（可空）</label>
             <input id="audioFile" type="text" placeholder="例如：0001.mp3">
             <div class="help">只填檔名即可。若已是完整網址，也可直接貼上。</div>
+            <div id="audioDropZone" class="drop-zone">拖拉音檔到這裡，會自動帶入檔名<br><strong>支援 mp3 / m4a / wav / ogg / flac</strong></div>
           </div>
           <div>
             <label for="imageFile">圖片檔名（可空）</label>
             <input id="imageFile" type="text" placeholder="例如：0001.jpg">
             <div class="help">只填檔名即可。若已是完整網址，也可直接貼上。</div>
+            <div id="imageDropZone" class="drop-zone">拖拉圖片到這裡，會自動帶入檔名<br><strong>支援 jpg / jpeg / png / webp / gif</strong></div>
           </div>
         </div>
 
@@ -341,6 +352,31 @@
         <div id="themeMsg" class="msg"></div>
       </div>
 
+
+      <div class="card">
+        <h2>一鍵備份 / 還原</h2>
+        <div class="section-note">備份內容包含：全部法語資料（phrases）與外觀設定（site_settings/appearance）。</div>
+        <div class="toolbar" style="margin-bottom:12px;">
+          <button id="backupAllBtn" class="btn primary" type="button">下載完整備份 JSON</button>
+        </div>
+        <div class="grid">
+          <div>
+            <label for="restoreFile">選擇備份檔（JSON）</label>
+            <input id="restoreFile" type="file" accept=".json,application/json">
+            <div class="help">請選擇先前從本後台下載的備份 JSON。</div>
+          </div>
+          <div>
+            <label>還原方式</label>
+            <label class="inline-check"><input id="restoreOverwrite" type="checkbox" checked> 還原前先清空現有法語資料</label>
+            <div class="help">建議保持勾選，避免重複資料。</div>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button id="restoreBtn" class="btn blue" type="button">還原備份</button>
+        </div>
+        <div id="backupMsg" class="msg"></div>
+      </div>
+
       <div class="card">
         <h2>資料匯出</h2>
         <div class="toolbar">
@@ -402,6 +438,8 @@
     const urlEl = document.getElementById('url');
     const audioFile = document.getElementById('audioFile');
     const imageFile = document.getElementById('imageFile');
+    const audioDropZone = document.getElementById('audioDropZone');
+    const imageDropZone = document.getElementById('imageDropZone');
     const orderEl = document.getElementById('order');
     const published = document.getElementById('published');
     const saveBtn = document.getElementById('saveBtn');
@@ -427,6 +465,12 @@
     const saveThemeBtn = document.getElementById('saveThemeBtn');
     const loadThemeBtn = document.getElementById('loadThemeBtn');
     const themeMsg = document.getElementById('themeMsg');
+
+    const backupAllBtn = document.getElementById('backupAllBtn');
+    const restoreFile = document.getElementById('restoreFile');
+    const restoreOverwrite = document.getElementById('restoreOverwrite');
+    const restoreBtn = document.getElementById('restoreBtn');
+    const backupMsg = document.getElementById('backupMsg');
 
     const exportJsonBtn = document.getElementById('exportJsonBtn');
     const exportCsvBtn = document.getElementById('exportCsvBtn');
@@ -582,6 +626,34 @@
       });
     }
 
+
+    function suggestFileName(targetInput, file) {
+      if (!targetInput || !file || !file.name) return;
+      targetInput.value = file.name;
+      targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    function bindDropZone(zone, targetInput, acceptPattern) {
+      if (!zone || !targetInput) return;
+      ['dragenter', 'dragover'].forEach(type => zone.addEventListener(type, (e) => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+      }));
+      ['dragleave', 'dragend', 'drop'].forEach(type => zone.addEventListener(type, () => {
+        zone.classList.remove('dragover');
+      }));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer?.files?.[0];
+        if (!file) return;
+        if (acceptPattern && !acceptPattern.test(file.name)) {
+          setMessage(saveMsg, '檔案格式不符合。', 'err');
+          return;
+        }
+        suggestFileName(targetInput, file);
+        setMessage(saveMsg, `已帶入檔名：${file.name}`, 'ok');
+      });
+    }
+
     async function loadItems() {
       const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
       const snap = await getDocs(q);
@@ -724,6 +796,91 @@
       }
     }
 
+
+    async function downloadFullBackup() {
+      try {
+        setMessage(backupMsg, '備份中...', 'warn');
+        const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
+        const snap = await getDocs(q);
+        const phrases = [];
+        snap.forEach(d => phrases.push({ id: d.id, ...sanitizeExportRecord(d.data()) }));
+
+        const appearanceSnap = await getDoc(doc(db, 'site_settings', 'appearance'));
+        const appearance = appearanceSnap.exists() ? appearanceSnap.data() : {};
+
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          version: 1,
+          phrases,
+          appearance
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const stamp = new Date().toISOString().slice(0,19).replace(/[T:]/g,'-');
+        a.download = `ganlu-backup-${stamp}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setMessage(backupMsg, `備份完成，共 ${phrases.length} 筆法語。`, 'ok');
+      } catch (err) {
+        setMessage(backupMsg, '備份失敗：' + err.message, 'err');
+      }
+    }
+
+    async function restoreFromBackup() {
+      const file = restoreFile.files[0];
+      if (!file) {
+        setMessage(backupMsg, '請先選擇備份 JSON 檔。', 'err');
+        return;
+      }
+      restoreBtn.disabled = true;
+      setMessage(backupMsg, '還原中...', 'warn');
+      try {
+        const content = await file.text();
+        const parsed = JSON.parse(content);
+        const phraseRows = Array.isArray(parsed?.phrases) ? parsed.phrases : [];
+        const appearance = parsed?.appearance && typeof parsed.appearance === 'object' ? parsed.appearance : null;
+
+        if (!phraseRows.length && !appearance) {
+          throw new Error('備份檔內沒有可還原的資料。');
+        }
+
+        let cleared = 0;
+        if (restoreOverwrite.checked) {
+          cleared = await clearAllPhrases();
+        }
+
+        if (phraseRows.length) {
+          const chunkSize = 200;
+          for (let i = 0; i < phraseRows.length; i += chunkSize) {
+            const chunk = phraseRows.slice(i, i + chunkSize);
+            const batch = writeBatch(db);
+            chunk.forEach(row => {
+              const payload = payloadFromFields(row);
+              const restoreId = row.id || buildDeterministicId(payload);
+              batch.set(doc(db, 'phrases', restoreId), { ...payload, createdAt: serverTimestamp() }, { merge: true });
+            });
+            await batch.commit();
+          }
+        }
+
+        if (appearance) {
+          const cleanedAppearance = { ...appearance, updatedAt: serverTimestamp() };
+          await setDoc(doc(db, 'site_settings', 'appearance'), cleanedAppearance, { merge: true });
+        }
+
+        await loadItems();
+        await loadThemeSettings();
+        restoreFile.value = '';
+        setMessage(backupMsg, `還原完成。${restoreOverwrite.checked ? `已先清空 ${cleared} 筆舊資料。` : ''} 已寫入 ${phraseRows.length} 筆法語。`, 'ok');
+      } catch (err) {
+        setMessage(backupMsg, '還原失敗：' + err.message, 'err');
+      } finally {
+        restoreBtn.disabled = false;
+      }
+    }
+
     onAuthStateChanged(auth, async (user) => {
       if (user && String(user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         showAdmin();
@@ -779,6 +936,10 @@
       setMessage(saveMsg, '資料已重新整理。', 'ok');
     });
     resetBtn.addEventListener('click', clearForm);
+    bindDropZone(audioDropZone, audioFile, /\.(mp3|m4a|wav|ogg|flac)$/i);
+    bindDropZone(imageDropZone, imageFile, /\.(jpg|jpeg|png|webp|gif)$/i);
+    backupAllBtn.addEventListener('click', downloadFullBackup);
+    restoreBtn.addEventListener('click', restoreFromBackup);
 
     saveBtn.addEventListener('click', async () => {
       if (isSaving) return;

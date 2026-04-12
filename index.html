@@ -960,10 +960,58 @@ function getRandomIndex(max) {
 }
 
 const QUOTE_ROTATION_STORAGE_KEY = 'ganlu_quote_rotation_v4';
-const QUOTE_CACHE_STORAGE_KEY = 'ganlu_quote_cache_v1';
-const FIREBASE_QUOTE_WAIT_MS = 2500;
+const FIREBASE_QUOTE_WAIT_MS = 1200;
 let firebaseQuoteResolved = false;
 let firebaseFallbackTimer = null;
+const QUOTE_CACHE_STORAGE_KEY = 'ganlu_quotes_cache_v1';
+const APPEARANCE_CACHE_STORAGE_KEY = 'ganlu_appearance_cache_v1';
+
+
+function saveQuoteCache(items = []) {
+  try {
+    const payload = items.map(item => ({
+      content: String(item.content || ''),
+      date: String(item.date || ''),
+      url: String(item.url || ''),
+      published: item.published !== false,
+      createdAt: getCreatedAtMs(item.createdAt)
+    }));
+    localStorage.setItem(QUOTE_CACHE_STORAGE_KEY, JSON.stringify(payload));
+  } catch (e) {
+    console.warn('儲存法語快取失敗：', e);
+  }
+}
+
+function readQuoteCache() {
+  try {
+    const raw = localStorage.getItem(QUOTE_CACHE_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeQuoteDoc).filter(item => item.content && item.published !== false);
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveAppearanceCache(settings = {}) {
+  try {
+    localStorage.setItem(APPEARANCE_CACHE_STORAGE_KEY, JSON.stringify(settings || {}));
+  } catch (e) {
+    console.warn('儲存外觀快取失敗：', e);
+  }
+}
+
+function readAppearanceCache() {
+  try {
+    const raw = localStorage.getItem(APPEARANCE_CACHE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
 
 function getTodayKey() {
   return getTaipeiDateId();
@@ -1051,46 +1099,15 @@ function applyDailyQuoteRotation(forceRefresh = false) {
   return currentQuoteIndex;
 }
 
-
-function readQuoteCache() {
-  try {
-    const raw = localStorage.getItem(QUOTE_CACHE_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed?.quotes) ? parsed.quotes.map(normalizeQuoteDoc).filter(item => item.content && item.published !== false) : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function writeQuoteCache(quotes = []) {
-  try {
-    localStorage.setItem(QUOTE_CACHE_STORAGE_KEY, JSON.stringify({
-      updatedAt: Date.now(),
-      quotes: quotes.map(item => ({
-        content: item.content || '',
-        date: item.date || '',
-        url: item.url || '',
-        published: item.published !== false,
-        createdAt: item.createdAt || null,
-        _order: Number(item._order || 0)
-      }))
-    }));
-  } catch (e) {
-    console.warn('儲存法語快取失敗：', e);
-  }
-}
-
-function renderCachedQuotesFirst() {
-  const cached = readQuoteCache();
-  if (!cached.length) return false;
-  QUOTES = prioritizeLatestQuote(cached);
-  applyDailyQuoteRotation();
-  renderQuote();
-  return true;
-}
-
 function renderImmediateFallback() {
+  const cachedQuotes = prioritizeLatestQuote(readQuoteCache());
+  if (cachedQuotes.length) {
+    QUOTES = cachedQuotes;
+    applyDailyQuoteRotation();
+    renderQuote();
+    return;
+  }
+
   const localQuotes = getValidLocalQuotes();
   if (!localQuotes.length) return;
 
@@ -1150,8 +1167,7 @@ function subscribeFirebaseSingleSource() {
 
   const db = initFirebaseSingleSource();
 
-  const hasCache = renderCachedQuotesFirst();
-  if (!hasCache) quoteText.textContent = '載入今日法語…';
+  quoteText.textContent = '載入今日法語…';
   sourceLink.textContent = '';
   sourceLink.removeAttribute('href');
   sourceLink.classList.add('disabled');
@@ -1159,7 +1175,7 @@ function subscribeFirebaseSingleSource() {
 
   if (!db) {
     clearTimeout(firebaseFallbackTimer);
-    if (!renderCachedQuotesFirst()) renderImmediateFallback();
+    renderImmediateFallback();
     if (!QUOTES.length) {
       quoteText.textContent = '無法連線 Firebase';
     }
@@ -1182,7 +1198,7 @@ function subscribeFirebaseSingleSource() {
 
     if (orderedRows.length) {
       QUOTES = orderedRows;
-      writeQuoteCache(orderedRows);
+      saveQuoteCache(orderedRows);
       applyDailyQuoteRotation();
       renderQuote();
     } else if (!QUOTES.length) {
@@ -1195,7 +1211,7 @@ function subscribeFirebaseSingleSource() {
   }, (e) => {
     console.warn('讀取法語資料失敗：', e);
     clearTimeout(firebaseFallbackTimer);
-    if (!QUOTES.length && !renderCachedQuotesFirst()) {
+    if (!QUOTES.length) {
       renderImmediateFallback();
     }
     if (!QUOTES.length) {
@@ -1206,7 +1222,9 @@ function subscribeFirebaseSingleSource() {
 
   firebaseAppearanceUnsubscribe = db.collection('site_settings').doc('appearance').onSnapshot((snap) => {
     if (!snap.exists) return;
-    applyAppearanceSettings(snap.data() || {});
+    const appearanceData = snap.data() || {};
+    saveAppearanceCache(appearanceData);
+    applyAppearanceSettings(appearanceData);
   }, (e) => {
     console.warn('讀取外觀設定失敗：', e);
   });
@@ -1224,6 +1242,8 @@ function updateDateTime() {
 }
 updateDateTime();
 setInterval(updateDateTime, 1000);
+applyAppearanceSettings(readAppearanceCache());
+renderImmediateFallback();
 subscribeFirebaseSingleSource();
 
 function dailyQuoteIndex() {
