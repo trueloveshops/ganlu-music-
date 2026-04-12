@@ -348,7 +348,7 @@
           <button id="exportCsvBtn" class="btn blue" type="button">匯出 CSV</button>
           <button id="exportPublishedJsonBtn" class="btn gray" type="button">匯出已發布 JSON</button>
           <button id="clearAllBtn" class="btn danger" type="button">清空全部資料</button>
-          <button id="fixImagePathsBtn" class="btn gray" type="button">一鍵修正圖片路徑</button>
+          <button id="fixImagePathsBtn" class="btn danger" type="button">一鍵修正圖片路徑</button>
         </div>
         <div class="section-note">前台仍使用 Firebase 即時更新。匯出檔案可作為備份。</div>
         <div id="exportMsg" class="msg"></div>
@@ -584,6 +584,66 @@
       });
     }
 
+    function extractFilenameFromAnyPath(value) {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      const cleaned = raw.replace(/^"+|"+$/g, '').trim();
+      const parts = cleaned.split(/[/\\]/).filter(Boolean);
+      return parts.length ? parts[parts.length - 1].replace(/^"+|"+$/g, '').trim() : cleaned;
+    }
+
+    function normalizeDigitsImagePath(value, folder = 'fayu2') {
+      const filename = extractFilenameFromAnyPath(value);
+      if (!filename) return '';
+      const match = filename.match(/(\d{4})[.\-_]?(\d{2})[.\-_]?(\d{2})(\.[A-Za-z0-9]+)$/);
+      if (!match) {
+        return `${folder}/${filename}`;
+      }
+      const [, y, m, d, ext] = match;
+      return `${folder}/${y}${m}${d}${ext.toLowerCase()}`;
+    }
+
+    async function fixImagePathsToFayu2() {
+      if (!confirm('確定要把所有圖片路徑修正為 fayu2/純數字日期檔名？')) return;
+      try {
+        const snap = await getDocs(collection(db, 'phrases'));
+        let changed = 0;
+        let batch = writeBatch(db);
+        let ops = 0;
+
+        for (const d of snap.docs) {
+          const data = d.data() || {};
+          const oldImageFile = String(data.imageFile || '').trim();
+          if (!oldImageFile) continue;
+
+          const fixedImageFile = normalizeDigitsImagePath(oldImageFile, 'fayu2');
+          const fixedImageUrl = buildUrl(IMAGE_BASE, fixedImageFile);
+
+          if (oldImageFile !== fixedImageFile || String(data.imageUrl || '').trim() !== fixedImageUrl) {
+            batch.update(doc(db, 'phrases', d.id), {
+              imageFile: fixedImageFile,
+              imageUrl: fixedImageUrl,
+              updatedAt: serverTimestamp()
+            });
+            changed++;
+            ops++;
+            if (ops === 200) {
+              await batch.commit();
+              batch = writeBatch(db);
+              ops = 0;
+            }
+          }
+        }
+
+        if (ops > 0) await batch.commit();
+        setMessage(exportMsg, changed ? `已修正 ${changed} 筆圖片路徑。` : '沒有需要修正的圖片路徑。', changed ? 'ok' : 'warn');
+        await loadItems();
+      } catch (err) {
+        setMessage(exportMsg, '修正圖片路徑失敗：' + err.message, 'err');
+      }
+    }
+
+
     async function loadItems() {
       const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
       const snap = await getDocs(q);
@@ -723,78 +783,6 @@
         setMessage(exportMsg, `已匯出 ${rows.length} 筆 CSV。`, 'ok');
       } catch (err) {
         setMessage(exportMsg, '匯出失敗：' + err.message, 'err');
-      }
-    }
-
-
-    function deriveImageRelativePath(raw) {
-      let value = String(raw || '').trim();
-      if (!value) return '';
-      value = value.replace(/^['"]+|['"]+$/g, '').trim();
-
-      // Sometimes pasted local paths get duplicated back-to-back; keep the first valid segment.
-      const repeatedWin = value.match(/^([A-Za-z]:\\[^"]+?\.[A-Za-z0-9]+)(?:"?\1)+$/);
-      if (repeatedWin) value = repeatedWin[1];
-      const repeatedPosix = value.match(/^((?:\/|https?:\/\/)[^"]+?\.[A-Za-z0-9]+)(?:"?\1)+$/);
-      if (repeatedPosix) value = repeatedPosix[1];
-
-      const normalized = value.replace(/\\/g, '/');
-      if (/^https?:\/\//i.test(normalized)) {
-        const idx = normalized.toLowerCase().indexOf('/images/');
-        if (idx >= 0) return normalized.slice(idx + '/images/'.length).replace(/^\/+/, '');
-        return normalized;
-      }
-
-      const imagesIdx = normalized.toLowerCase().lastIndexOf('/images/');
-      if (imagesIdx >= 0) {
-        return normalized.slice(imagesIdx + '/images/'.length).replace(/^\/+/, '');
-      }
-
-      const parts = normalized.split('/').filter(Boolean);
-      if (!parts.length) return '';
-
-      const last = parts[parts.length - 1];
-      const prev = parts.length > 1 ? parts[parts.length - 2] : '';
-      if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(last)) {
-        if (prev && !/^(downloads|desktop|documents|images|music)$/i.test(prev)) {
-          return `${prev}/${last}`;
-        }
-        return last;
-      }
-      return normalized;
-    }
-
-    async function fixAllImagePaths() {
-      if (!confirm('確定要修正現有圖片路徑嗎？\n會將本機完整路徑改成 GitHub 可用的相對路徑。')) return;
-      try {
-        fixImagePathsBtn.disabled = true;
-        setMessage(exportMsg, '修正中…', 'warn');
-
-        const snap = await getDocs(collection(db, 'phrases'));
-        let changed = 0;
-
-        for (const row of snap.docs) {
-          const data = row.data() || {};
-          const original = String(data.imageFile || '').trim();
-          if (!original) continue;
-
-          const fixed = deriveImageRelativePath(original);
-          if (!fixed || fixed === original) continue;
-
-          await updateDoc(doc(db, 'phrases', row.id), {
-            imageFile: fixed,
-            imageUrl: buildUrl(IMAGE_BASE, fixed),
-            updatedAt: serverTimestamp()
-          });
-          changed++;
-        }
-
-        setMessage(exportMsg, changed ? `已修正 ${changed} 筆圖片路徑。` : '沒有需要修正的圖片路徑。', changed ? 'ok' : 'warn');
-        await loadItems();
-      } catch (err) {
-        setMessage(exportMsg, '修正失敗：' + err.message, 'err');
-      } finally {
-        fixImagePathsBtn.disabled = false;
       }
     }
 
@@ -1019,8 +1007,6 @@
     exportCsvBtn.addEventListener('click', () => exportData('csv'));
     exportPublishedJsonBtn.addEventListener('click', () => exportData('json', true));
 
-    fixImagePathsBtn.addEventListener('click', fixAllImagePaths);
-
     clearAllBtn.addEventListener('click', async () => {
       if (!confirm('確定要清空全部法語資料？此動作無法復原。')) return;
       try {
@@ -1032,6 +1018,8 @@
         setMessage(exportMsg, '清空失敗：' + err.message, 'err');
       }
     });
+
+    fixImagePathsBtn.addEventListener('click', fixImagePathsToFayu2);
 
     runSearchBtn.addEventListener('click', () => {
       renderItems(searchInput.value);
