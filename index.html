@@ -188,16 +188,6 @@ body {
   content:""; display:block; width:88px; height:1px; background:rgba(255,255,255,.25);
 }
 .decor-lotus { width:16px; height:16px; opacity:.95; }
-.quote-image{
-  display:block;
-  width:100%;
-  max-height:240px;
-  object-fit:contain;
-  border-radius:18px;
-  margin:0 auto 14px;
-  box-shadow:0 8px 24px rgba(0,0,0,.16);
-}
-.quote-image.hidden{display:none}
 .quote-text {
   flex:1; min-height:0; overflow:auto; scrollbar-width:none;
   text-align:center; white-space:pre-wrap;
@@ -205,10 +195,22 @@ body {
   text-shadow:0 1px 4px rgba(0,0,0,.12);
   opacity:1; transition:opacity 1.6s ease;
 }
-.quote-text.image-only{
-  display:none;
-}
 .quote-text::-webkit-scrollbar{display:none}
+.quote-image{
+  display:block;
+  max-width:100%;
+  max-height:240px;
+  margin:0 auto 12px;
+  border-radius:14px;
+  object-fit:contain;
+  box-shadow:0 8px 24px rgba(0,0,0,.18);
+}
+.quote-image-only{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100%;
+}
 .source {
   margin-top:16px; text-align:center; display:block;
   font-size:12px; color:rgba(246,252,252,.92); text-decoration:none;
@@ -505,7 +507,6 @@ html, body {
         <path d="M12 20c-6-2-7-7-4-12 5 2 7 5 4 12Z" fill="none" stroke="rgba(245,251,251,.8)" stroke-width="1.4"/>
       </svg>
     </div>
-    <img id="quoteImage" class="quote-image hidden" alt="法語圖片">
     <div class="quote-text" id="quoteText">載入中…</div>
     <a id="sourceLink" class="source disabled" href="#" target="_blank" rel="noopener noreferrer"></a>
     <div class="quote-nav" aria-label="法語切換">
@@ -582,7 +583,6 @@ if (initialOuterBlurBg) {
 
 const datetimeEl = document.getElementById('datetime');
 const quoteText = document.getElementById('quoteText');
-const quoteImage = document.getElementById('quoteImage');
 const sourceLink = document.getElementById('sourceLink');
 const searchInput = document.getElementById('searchInput');
 const searchPanel = document.getElementById('searchPanel');
@@ -906,13 +906,18 @@ function normalizeQuoteDoc(data = {}) {
     ''
   ).trim();
 
-  const imageFile = String(data.imageFile ?? data.image ?? '').trim();
-  let imageUrl = String(data.imageUrl ?? data.image_url ?? '').trim();
-  if (!imageUrl && imageFile) {
-    imageUrl = /^https?:\/\//i.test(imageFile)
-      ? imageFile
-      : IMAGE_BASE + encodeURIComponent(imageFile).replace(/%2F/g, '/');
-  }
+  const imageFile = String(
+    data.imageFile ??
+    data.image ??
+    data.imagePath ??
+    ''
+  ).trim();
+
+  const imageUrl = String(
+    data.imageUrl ??
+    data.image_url ??
+    ''
+  ).trim();
 
   let published = true;
   if (typeof data.published !== 'undefined') {
@@ -976,7 +981,7 @@ function getValidLocalQuotes() {
   if (!Array.isArray(LEGACY_QUOTES)) return [];
   return LEGACY_QUOTES
     .map(normalizeQuoteDoc)
-    .filter(item => item.content || item.imageUrl);
+    .filter(item => item.content || item.imageFile || item.imageUrl);
 }
 
 function getRandomIndex(max) {
@@ -988,9 +993,8 @@ const QUOTE_ROTATION_STORAGE_KEY = 'ganlu_quote_rotation_v4';
 const FIREBASE_QUOTE_WAIT_MS = 1200;
 let firebaseQuoteResolved = false;
 let firebaseFallbackTimer = null;
-const QUOTE_CACHE_STORAGE_KEY = 'ganlu_quotes_cache_v2';
+const QUOTE_CACHE_STORAGE_KEY = 'ganlu_quotes_cache_v1';
 const APPEARANCE_CACHE_STORAGE_KEY = 'ganlu_appearance_cache_v1';
-const IMAGE_BASE = 'https://trueloveshops.github.io/ganlu-music-/images/';
 
 
 function saveQuoteCache(items = []) {
@@ -1016,7 +1020,7 @@ function readQuoteCache() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeQuoteDoc).filter(item => (item.content || item.imageUrl) && item.published !== false);
+    return parsed.map(normalizeQuoteDoc).filter(item => (item.content || item.imageFile || item.imageUrl) && item.published !== false);
   } catch (e) {
     return [];
   }
@@ -1049,7 +1053,8 @@ function quoteSignature(item = {}) {
   return [
     String(item.content || '').trim(),
     String(item.date || '').trim(),
-    String(item.url || '').trim()
+    String(item.url || '').trim(),
+    String(item.imageFile || item.imageUrl || '').trim()
   ].join('||');
 }
 
@@ -1164,7 +1169,7 @@ function sortQuotesForRotation(items = []) {
     const timeDiff = getCreatedAtMs(b.createdAt) - getCreatedAtMs(a.createdAt);
     if (timeDiff !== 0) return timeDiff;
 
-    return String(a.content || '').localeCompare(String(b.content || ''), 'zh-Hant');
+    return String(a.content || a.imageFile || '').localeCompare(String(b.content || b.imageFile || ''), 'zh-Hant');
   });
 }
 
@@ -1195,9 +1200,6 @@ function subscribeFirebaseSingleSource() {
 
   const db = initFirebaseSingleSource();
 
-  quoteImage.removeAttribute('src');
-  quoteImage.classList.add('hidden');
-  quoteText.classList.remove('image-only');
   quoteText.textContent = '載入今日法語…';
   sourceLink.textContent = '';
   sourceLink.removeAttribute('href');
@@ -1222,7 +1224,7 @@ function subscribeFirebaseSingleSource() {
       const raw = d.data() || {};
       const item = normalizeQuoteDoc(raw);
       item._order = Number(raw.order || 0);
-      if (item.content && item.published !== false) rows.push(item);
+      if ((item.content || item.imageFile || item.imageUrl) && item.published !== false) rows.push(item);
     });
 
     const orderedRows = prioritizeLatestQuote(rows);
@@ -1285,38 +1287,41 @@ currentQuoteIndex = 0;
 function renderQuote() {
   if (!QUOTES.length) {
     clearTimeout(renderQuote._timer);
-    quoteImage.removeAttribute('src');
-    quoteImage.classList.add('hidden');
     quoteText.textContent = '目前沒有法語資料';
-    quoteText.classList.remove('image-only');
     sourceLink.textContent = '';
     sourceLink.removeAttribute('href');
     sourceLink.classList.add('disabled');
     return;
   }
-  const item = QUOTES[currentQuoteIndex] || {content:'目前沒有法語資料',date:'',url:''};
+  const item = QUOTES[currentQuoteIndex] || {content:'目前沒有法語資料',date:'',url:'',imageFile:'',imageUrl:''};
 
   clearTimeout(renderQuote._timer);
   quoteText.style.opacity = '0';
 
   renderQuote._timer = setTimeout(() => {
-    const hasImage = !!item.imageUrl;
-    const hasText = !!(item.content || '').trim();
+    const imageSrc = String(item.imageUrl || '').trim() || (String(item.imageFile || '').trim()
+      ? (/^https?:\/\//i.test(String(item.imageFile || '').trim())
+          ? String(item.imageFile || '').trim()
+          : `images/${String(item.imageFile || '').trim().replace(/^\/+/, '')}`)
+      : '');
 
-    if (hasImage) {
-      quoteImage.src = item.imageUrl;
-      quoteImage.classList.remove('hidden');
-    } else {
-      quoteImage.removeAttribute('src');
-      quoteImage.classList.add('hidden');
-    }
+    const safeText = String(item.content || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/\n/g, '<br>');
 
-    if (hasText) {
-      quoteText.textContent = item.content || '';
-      quoteText.classList.remove('image-only');
+    if (imageSrc || safeText) {
+      quoteText.innerHTML = `
+        <div class="${safeText ? '' : 'quote-image-only'}">
+          ${imageSrc ? `<img class="quote-image" src="${imageSrc}" alt="法語圖片" onerror="this.style.display='none'">` : ''}
+          ${safeText ? `<div>${safeText}</div>` : ''}
+        </div>
+      `;
     } else {
-      quoteText.textContent = '';
-      quoteText.classList.add('image-only');
+      quoteText.textContent = '目前沒有法語資料';
     }
 
     quoteText.scrollTop = 0;
@@ -1641,7 +1646,8 @@ function renderSearchPanelResults() {
     const start = searchState.quotePage * SEARCH_PAGE_SIZE;
     const pageItems = qr.slice(start, start + SEARCH_PAGE_SIZE);
     pageItems.forEach(([idx,item]) => {
-      const short = item.content.length > 34 ? item.content.slice(0,34) + '…' : item.content;
+      const displayText = item.content || item.imageFile || '圖片法語';
+      const short = displayText.length > 34 ? displayText.slice(0,34) + '…' : displayText;
       html += `<div class="search-item" data-action="quote" data-index="${idx}"><div>${short}</div></div>`;
     });
     if (!pageItems.length) html = '<div class="search-item">找不到結果</div>';
@@ -1681,7 +1687,7 @@ function updateSearchResults() {
 
   searchState.quoteResults = [];
   QUOTES.forEach((item, idx) => {
-    if ((item.content || '').includes(q) || (item.date || '').includes(q)) searchState.quoteResults.push([idx, item]);
+    if ((item.content || '').includes(q) || (item.date || '').includes(q) || (item.imageFile || '').includes(q)) searchState.quoteResults.push([idx, item]);
   });
 
   searchState.trackResults = [];

@@ -171,15 +171,6 @@
     .meta{font-size:13px;color:#667d95;line-height:1.7;white-space:pre-wrap}
     .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
     .small-link{word-break:break-all}
-    .drop-zone{
-      border:2px dashed #b9cde4;border-radius:16px;padding:14px 16px;margin-top:10px;
-      background:rgba(239,246,253,.78);color:#5b7594;text-align:center;font-size:14px;
-      transition:border-color .15s ease, background .15s ease, transform .15s ease;
-    }
-    .drop-zone.dragover{
-      border-color:#5e92e8;background:rgba(220,236,255,.95);transform:translateY(-1px);
-    }
-    .drop-zone strong{color:#325b86}
 
     @media (max-width: 860px){
       .grid,.grid-3{grid-template-columns:1fr}
@@ -239,13 +230,11 @@
             <label for="audioFile">音檔檔名（可空）</label>
             <input id="audioFile" type="text" placeholder="例如：0001.mp3">
             <div class="help">只填檔名即可。若已是完整網址，也可直接貼上。</div>
-            <div id="audioDropZone" class="drop-zone">拖拉音檔到這裡，會自動帶入檔名<br><strong>支援 mp3 / m4a / wav / ogg / flac</strong></div>
           </div>
           <div>
             <label for="imageFile">圖片檔名（可空）</label>
             <input id="imageFile" type="text" placeholder="例如：0001.jpg">
             <div class="help">只填檔名即可。若已是完整網址，也可直接貼上。</div>
-            <div id="imageDropZone" class="drop-zone">拖拉圖片到這裡，會自動帶入檔名<br><strong>支援 jpg / jpeg / png / webp / gif</strong></div>
           </div>
         </div>
 
@@ -268,15 +257,6 @@
           <button id="resetBtn" class="btn gray" type="button">清空</button>
         </div>
         <div id="saveMsg" class="msg"></div>
-
-        <div class="live-preview-wrap">
-          <div class="live-preview-title">即時預覽</div>
-          <div class="live-preview-card">
-            <img id="livePreviewImage" class="live-preview-image" alt="法語圖片預覽">
-            <div id="livePreviewText" class="live-preview-text empty">尚未輸入法語文字或圖片</div>
-            <div id="livePreviewMeta" class="live-preview-meta">日期 / 來源、圖片檔名會顯示在這裡</div>
-          </div>
-        </div>
       </div>
 
       <div class="card">
@@ -292,6 +272,23 @@
         </div>
         <div id="importMsg" class="msg"></div>
         <div id="previewBox" class="preview-box hidden"></div>
+      </div>
+
+
+      <div class="card">
+        <h2>批量匯入法語圖片（支援貼路徑）</h2>
+        <div class="help">先把圖片上傳到 GitHub 的 <code>/images/fayu/</code>，再把本機完整路徑或檔名整批貼到下方。</div>
+        <div class="help">支援格式範例：<code>C:\Users\你\Pictures\19881206.jpg</code>、<code>19890112.jpg</code>。系統會自動轉成 <code>fayu/檔名</code>，並從 8 碼日期檔名自動填入日期。</div>
+        <div class="field">
+          <textarea id="bulkImageInput" placeholder="一行一個路徑或檔名，例如：&#10;C:\Users\you\Pictures\19881206.jpg&#10;19890112.jpg&#10;19901029.jpg"></textarea>
+        </div>
+        <div class="toolbar">
+          <button id="previewBulkBtn" class="btn blue" type="button">預覽圖片匯入</button>
+          <button id="importBulkBtn" class="btn primary" type="button" disabled>一鍵匯入圖片法語</button>
+          <button id="clearBulkBtn" class="btn gray" type="button">清空內容</button>
+        </div>
+        <div id="bulkImportMsg" class="msg"></div>
+        <div id="bulkPreviewBox" class="preview-box hidden"></div>
       </div>
 
       <div class="card">
@@ -361,31 +358,6 @@
         <div id="themeMsg" class="msg"></div>
       </div>
 
-
-      <div class="card">
-        <h2>一鍵備份 / 還原</h2>
-        <div class="section-note">備份內容包含：全部法語資料（phrases）與外觀設定（site_settings/appearance）。</div>
-        <div class="toolbar" style="margin-bottom:12px;">
-          <button id="backupAllBtn" class="btn primary" type="button">下載完整備份 JSON</button>
-        </div>
-        <div class="grid">
-          <div>
-            <label for="restoreFile">選擇備份檔（JSON）</label>
-            <input id="restoreFile" type="file" accept=".json,application/json">
-            <div class="help">請選擇先前從本後台下載的備份 JSON。</div>
-          </div>
-          <div>
-            <label>還原方式</label>
-            <label class="inline-check"><input id="restoreOverwrite" type="checkbox" checked> 還原前先清空現有法語資料</label>
-            <div class="help">建議保持勾選，避免重複資料。</div>
-          </div>
-        </div>
-        <div class="toolbar">
-          <button id="restoreBtn" class="btn blue" type="button">還原備份</button>
-        </div>
-        <div id="backupMsg" class="msg"></div>
-      </div>
-
       <div class="card">
         <h2>資料匯出</h2>
         <div class="toolbar">
@@ -447,16 +419,11 @@
     const urlEl = document.getElementById('url');
     const audioFile = document.getElementById('audioFile');
     const imageFile = document.getElementById('imageFile');
-    const audioDropZone = document.getElementById('audioDropZone');
-    const imageDropZone = document.getElementById('imageDropZone');
     const orderEl = document.getElementById('order');
     const published = document.getElementById('published');
     const saveBtn = document.getElementById('saveBtn');
     const resetBtn = document.getElementById('resetBtn');
     const saveMsg = document.getElementById('saveMsg');
-    const livePreviewImage = document.getElementById('livePreviewImage');
-    const livePreviewText = document.getElementById('livePreviewText');
-    const livePreviewMeta = document.getElementById('livePreviewMeta');
 
     const csvFile = document.getElementById('csvFile');
     const previewBtn = document.getElementById('previewBtn');
@@ -465,6 +432,13 @@
     const clearBeforeImport = document.getElementById('clearBeforeImport');
     const importMsg = document.getElementById('importMsg');
     const previewBox = document.getElementById('previewBox');
+
+    const bulkImageInput = document.getElementById('bulkImageInput');
+    const previewBulkBtn = document.getElementById('previewBulkBtn');
+    const importBulkBtn = document.getElementById('importBulkBtn');
+    const clearBulkBtn = document.getElementById('clearBulkBtn');
+    const bulkImportMsg = document.getElementById('bulkImportMsg');
+    const bulkPreviewBox = document.getElementById('bulkPreviewBox');
 
     const themeName = document.getElementById('themeName');
     const quoteFontFamily = document.getElementById('quoteFontFamily');
@@ -477,12 +451,6 @@
     const saveThemeBtn = document.getElementById('saveThemeBtn');
     const loadThemeBtn = document.getElementById('loadThemeBtn');
     const themeMsg = document.getElementById('themeMsg');
-
-    const backupAllBtn = document.getElementById('backupAllBtn');
-    const restoreFile = document.getElementById('restoreFile');
-    const restoreOverwrite = document.getElementById('restoreOverwrite');
-    const restoreBtn = document.getElementById('restoreBtn');
-    const backupMsg = document.getElementById('backupMsg');
 
     const exportJsonBtn = document.getElementById('exportJsonBtn');
     const exportCsvBtn = document.getElementById('exportCsvBtn');
@@ -499,6 +467,7 @@
     let isSaving = false;
     let isLoggingIn = false;
     let parsedRows = [];
+    let parsedBulkRows = [];
     let allItems = [];
 
     function setMessage(el, text = '', type = '') {
@@ -529,9 +498,8 @@
     }
     function getTitleFromText(value, fallback = '') {
       const t = String(value || '').trim();
-      if (t) return t.slice(0, 20);
       const f = String(fallback || '').trim();
-      return f ? f.slice(0, 20) : '未命名';
+      return (t || f || '未命名').slice(0, 20);
     }
     function hashString(str) {
       let hash = 5381;
@@ -553,62 +521,21 @@
     function payloadFromFields(obj) {
       const textValue = String(obj.text || '').trim();
       const dateValue = String(obj.date || '').trim();
-      const urlValue = String(obj.url || '').trim();
-      const audioFileValue = String(obj.audioFile || '').trim();
-      const imageFileValue = String(obj.imageFile || '').trim();
-      const fallbackTitle = imageFileValue || audioFileValue || dateValue || urlValue || '未命名';
+      const audioValue = String(obj.audioFile || '').trim();
+      const imageValue = String(obj.imageFile || '').trim();
       return {
-        title: getTitleFromText(textValue, fallbackTitle),
+        title: getTitleFromText(textValue, imageValue || audioValue || dateValue),
         text: textValue,
         date: dateValue,
-        url: urlValue,
-        audioFile: audioFileValue,
-        imageFile: imageFileValue,
-        audioUrl: buildUrl(AUDIO_BASE, audioFileValue),
-        imageUrl: buildUrl(IMAGE_BASE, imageFileValue),
+        url: String(obj.url || '').trim(),
+        audioFile: audioValue,
+        imageFile: imageValue,
+        audioUrl: buildUrl(AUDIO_BASE, audioValue),
+        imageUrl: buildUrl(IMAGE_BASE, imageValue),
         order: Number(obj.order || 0),
         published: normalizePublished(obj.published),
         updatedAt: serverTimestamp()
       };
-    }
-    function updateLivePreview() {
-      const payload = payloadFromFields({
-        text: textEl.value,
-        date: dateEl.value,
-        url: urlEl.value,
-        audioFile: audioFile.value,
-        imageFile: imageFile.value,
-        order: orderEl.value,
-        published: published.value
-      });
-
-      const hasText = !!payload.text;
-      const hasImage = !!payload.imageUrl;
-      if (hasImage) {
-        livePreviewImage.src = payload.imageUrl;
-        livePreviewImage.style.display = 'block';
-      } else {
-        livePreviewImage.removeAttribute('src');
-        livePreviewImage.style.display = 'none';
-      }
-
-      if (hasText) {
-        livePreviewText.textContent = payload.text;
-        livePreviewText.classList.remove('empty');
-      } else if (hasImage) {
-        livePreviewText.textContent = '此筆資料將以圖片法語顯示';
-        livePreviewText.classList.add('empty');
-      } else {
-        livePreviewText.textContent = '尚未輸入法語文字或圖片';
-        livePreviewText.classList.add('empty');
-      }
-
-      const metaParts = [];
-      if (payload.date) metaParts.push(`日期 / 來源：${payload.date}`);
-      if (payload.imageFile) metaParts.push(`圖片：${payload.imageFile}`);
-      if (payload.audioFile) metaParts.push(`音檔：${payload.audioFile}`);
-      if (payload.url) metaParts.push(`連結：${payload.url}`);
-      livePreviewMeta.textContent = metaParts.length ? metaParts.join(' ｜ ') : '日期 / 來源、圖片檔名會顯示在這裡';
     }
     function clearForm() {
       docId.value = '';
@@ -623,7 +550,6 @@
       saveBtn.disabled = false;
       saveBtn.textContent = '儲存';
       setMessage(saveMsg, '');
-      updateLivePreview();
     }
     function fillForm(id, item) {
       docId.value = id;
@@ -635,7 +561,6 @@
       orderEl.value = Number(item.order || 0);
       published.value = item.published === false ? 'false' : 'true';
       setMessage(saveMsg, '已載入資料，可直接修改後儲存。', 'ok');
-      updateLivePreview();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     function sanitizeExportRecord(item) {
@@ -685,33 +610,50 @@
         return obj;
       });
     }
-
-
-    function suggestFileName(targetInput, file) {
-      if (!targetInput || !file || !file.name) return;
-      targetInput.value = file.name;
-      targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+    function extractFilenameFromAnyPath(input) {
+      return String(input || '').trim().split(/[\\/]/).pop().trim();
     }
-    function bindDropZone(zone, targetInput, acceptPattern) {
-      if (!zone || !targetInput) return;
-      ['dragenter', 'dragover'].forEach(type => zone.addEventListener(type, (e) => {
-        e.preventDefault();
-        zone.classList.add('dragover');
-      }));
-      ['dragleave', 'dragend', 'drop'].forEach(type => zone.addEventListener(type, () => {
-        zone.classList.remove('dragover');
-      }));
-      zone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const file = e.dataTransfer?.files?.[0];
-        if (!file) return;
-        if (acceptPattern && !acceptPattern.test(file.name)) {
-          setMessage(saveMsg, '檔案格式不符合。', 'err');
-          return;
-        }
-        suggestFileName(targetInput, file);
-        setMessage(saveMsg, `已帶入檔名：${file.name}`, 'ok');
-      });
+    function normalizeImagePath(input) {
+      const raw = String(input || '').trim();
+      if (!raw) return '';
+      if (/^https?:\/\//i.test(raw)) return raw;
+      const filename = extractFilenameFromAnyPath(raw);
+      if (!filename) return '';
+      if (/^fayu\//i.test(raw)) return raw.replace(/^\/*/, '');
+      if (/^images\/fayu\//i.test(raw)) return raw.replace(/^images\//i, '').replace(/^\/*/, '');
+      return 'fayu/' + filename;
+    }
+    function inferDateFromFilename(input) {
+      const filename = extractFilenameFromAnyPath(input);
+      const m = filename.match(/(19|20)\d{6}/);
+      if (!m) return '';
+      const v = m[0];
+      return `${v.slice(0,4)}.${v.slice(4,6)}.${v.slice(6,8)}`;
+    }
+    function buildBulkImageRows(rawText) {
+      const lines = String(rawText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+      const seen = new Set();
+      const rows = [];
+      for (const line of lines) {
+        const raw = line.trim();
+        if (!raw) continue;
+        const imagePath = normalizeImagePath(raw);
+        const filename = extractFilenameFromAnyPath(raw);
+        if (!imagePath || !filename) continue;
+        const key = imagePath.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rows.push({
+          text: '',
+          date: inferDateFromFilename(filename),
+          url: '',
+          audioFile: '',
+          imageFile: imagePath,
+          order: 0,
+          published: true
+        });
+      }
+      return rows;
     }
 
     async function loadItems() {
@@ -739,7 +681,7 @@
         const publishedText = item.published === false ? '下架' : '發布';
         return `
           <div class="item">
-            <div class="item-title">${escapeHtml(item.text || '未命名')}</div>
+            <div class="item-title">${escapeHtml(item.text || item.imageFile || item.audioFile || item.date || '未命名')}</div>
             <div class="meta">排序：${Number(item.order || 0)} ｜ 狀態：${publishedText}\n日期/來源：${escapeHtml(item.date || '') || '—'}\n網址：${item.url ? `<span class="small-link">${escapeHtml(item.url)}</span>` : '—'}\n音檔：${escapeHtml(item.audioFile || '') || '—'}\n圖片：${escapeHtml(item.imageFile || '') || '—'}</div>
             <div class="actions">
               <button class="btn primary" type="button" data-edit="${item.id}">編輯</button>
@@ -856,91 +798,6 @@
       }
     }
 
-
-    async function downloadFullBackup() {
-      try {
-        setMessage(backupMsg, '備份中...', 'warn');
-        const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
-        const snap = await getDocs(q);
-        const phrases = [];
-        snap.forEach(d => phrases.push({ id: d.id, ...sanitizeExportRecord(d.data()) }));
-
-        const appearanceSnap = await getDoc(doc(db, 'site_settings', 'appearance'));
-        const appearance = appearanceSnap.exists() ? appearanceSnap.data() : {};
-
-        const payload = {
-          exportedAt: new Date().toISOString(),
-          version: 1,
-          phrases,
-          appearance
-        };
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const stamp = new Date().toISOString().slice(0,19).replace(/[T:]/g,'-');
-        a.download = `ganlu-backup-${stamp}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setMessage(backupMsg, `備份完成，共 ${phrases.length} 筆法語。`, 'ok');
-      } catch (err) {
-        setMessage(backupMsg, '備份失敗：' + err.message, 'err');
-      }
-    }
-
-    async function restoreFromBackup() {
-      const file = restoreFile.files[0];
-      if (!file) {
-        setMessage(backupMsg, '請先選擇備份 JSON 檔。', 'err');
-        return;
-      }
-      restoreBtn.disabled = true;
-      setMessage(backupMsg, '還原中...', 'warn');
-      try {
-        const content = await file.text();
-        const parsed = JSON.parse(content);
-        const phraseRows = Array.isArray(parsed?.phrases) ? parsed.phrases : [];
-        const appearance = parsed?.appearance && typeof parsed.appearance === 'object' ? parsed.appearance : null;
-
-        if (!phraseRows.length && !appearance) {
-          throw new Error('備份檔內沒有可還原的資料。');
-        }
-
-        let cleared = 0;
-        if (restoreOverwrite.checked) {
-          cleared = await clearAllPhrases();
-        }
-
-        if (phraseRows.length) {
-          const chunkSize = 200;
-          for (let i = 0; i < phraseRows.length; i += chunkSize) {
-            const chunk = phraseRows.slice(i, i + chunkSize);
-            const batch = writeBatch(db);
-            chunk.forEach(row => {
-              const payload = payloadFromFields(row);
-              const restoreId = row.id || buildDeterministicId(payload);
-              batch.set(doc(db, 'phrases', restoreId), { ...payload, createdAt: serverTimestamp() }, { merge: true });
-            });
-            await batch.commit();
-          }
-        }
-
-        if (appearance) {
-          const cleanedAppearance = { ...appearance, updatedAt: serverTimestamp() };
-          await setDoc(doc(db, 'site_settings', 'appearance'), cleanedAppearance, { merge: true });
-        }
-
-        await loadItems();
-        await loadThemeSettings();
-        restoreFile.value = '';
-        setMessage(backupMsg, `還原完成。${restoreOverwrite.checked ? `已先清空 ${cleared} 筆舊資料。` : ''} 已寫入 ${phraseRows.length} 筆法語。`, 'ok');
-      } catch (err) {
-        setMessage(backupMsg, '還原失敗：' + err.message, 'err');
-      } finally {
-        restoreBtn.disabled = false;
-      }
-    }
-
     onAuthStateChanged(auth, async (user) => {
       if (user && String(user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         showAdmin();
@@ -996,41 +853,24 @@
       setMessage(saveMsg, '資料已重新整理。', 'ok');
     });
     resetBtn.addEventListener('click', clearForm);
-    bindDropZone(audioDropZone, audioFile, /\.(mp3|m4a|wav|ogg|flac)$/i);
-    bindDropZone(imageDropZone, imageFile, /\.(jpg|jpeg|png|webp|gif)$/i);
-
-    [textEl, dateEl, urlEl, audioFile, imageFile, orderEl, published].forEach(el => {
-      el.addEventListener('input', updateLivePreview);
-      el.addEventListener('change', updateLivePreview);
-    });
-    livePreviewImage.addEventListener('error', () => {
-      livePreviewImage.style.display = 'none';
-      if (!textEl.value.trim()) {
-        livePreviewText.textContent = '找不到圖片，請確認圖片檔名與 images 資料夾是否一致';
-        livePreviewText.classList.add('empty');
-      }
-    });
-    updateLivePreview();
-    backupAllBtn.addEventListener('click', downloadFullBackup);
-    restoreBtn.addEventListener('click', restoreFromBackup);
 
     saveBtn.addEventListener('click', async () => {
       if (isSaving) return;
       const textValue = textEl.value.trim();
       const dateValue = dateEl.value.trim();
       const urlValue = urlEl.value.trim();
-      const audioFileValue = audioFile.value.trim();
-      const imageFileValue = imageFile.value.trim();
-      if (!textValue && !dateValue && !urlValue && !audioFileValue && !imageFileValue) {
-        setMessage(saveMsg, '請至少填入法語、圖片、音檔、日期或網址其中一項。', 'err');
+      const audioValue = audioFile.value.trim();
+      const imageValue = imageFile.value.trim();
+      if (!textValue && !dateValue && !urlValue && !audioValue && !imageValue) {
+        setMessage(saveMsg, '請至少填寫法語、日期、網址、音檔或圖片其中一項。', 'err');
         return;
       }
       const payload = payloadFromFields({
         text: textValue,
         date: dateValue,
         url: urlValue,
-        audioFile: audioFileValue,
-        imageFile: imageFileValue,
+        audioFile: audioValue,
+        imageFile: imageValue,
         order: orderEl.value,
         published: published.value
       });
@@ -1141,6 +981,75 @@
         importBtn.disabled = false;
         previewBtn.disabled = false;
       }
+    });
+
+    previewBulkBtn.addEventListener('click', async () => {
+      parsedBulkRows = [];
+      bulkPreviewBox.innerHTML = '';
+      bulkPreviewBox.classList.add('hidden');
+      importBulkBtn.disabled = true;
+      const rows = buildBulkImageRows(bulkImageInput.value);
+      if (!rows.length) {
+        setMessage(bulkImportMsg, '請貼上一行一個的圖片路徑或檔名。', 'err');
+        return;
+      }
+      parsedBulkRows = rows;
+      bulkPreviewBox.classList.remove('hidden');
+      bulkPreviewBox.innerHTML = rows.slice(0, 30).map((row, idx) => `
+        <div class="preview-row">
+          <strong>${idx + 1}. ${escapeHtml(row.imageFile)}</strong><br>
+          <span>date: ${escapeHtml(row.date || '—')}</span> ｜
+          <span>published: true</span>
+        </div>
+      `).join('');
+      if (rows.length > 30) bulkPreviewBox.innerHTML += `<div class="preview-row">只顯示前 30 筆，實際將匯入 ${rows.length} 筆。</div>`;
+      importBulkBtn.disabled = false;
+      setMessage(bulkImportMsg, `預覽完成，可匯入 ${rows.length} 筆圖片法語。`, 'ok');
+    });
+
+    importBulkBtn.addEventListener('click', async () => {
+      if (!parsedBulkRows.length) {
+        setMessage(bulkImportMsg, '請先預覽圖片匯入內容。', 'err');
+        return;
+      }
+      importBulkBtn.disabled = true;
+      previewBulkBtn.disabled = true;
+      setMessage(bulkImportMsg, '匯入中...', 'warn');
+      try {
+        const chunkSize = 200;
+        for (let i = 0; i < parsedBulkRows.length; i += chunkSize) {
+          const chunk = parsedBulkRows.slice(i, i + chunkSize);
+          const batch = writeBatch(db);
+          chunk.forEach(row => {
+            const payload = payloadFromFields(row);
+            const stableId = buildDeterministicId(payload);
+            batch.set(doc(db, 'phrases', stableId), { ...payload, createdAt: serverTimestamp() }, { merge: true });
+          });
+          await batch.commit();
+        }
+        const importedCount = parsedBulkRows.length;
+        parsedBulkRows = [];
+        bulkImageInput.value = '';
+        bulkPreviewBox.innerHTML = '';
+        bulkPreviewBox.classList.add('hidden');
+        importBulkBtn.disabled = true;
+        previewBulkBtn.disabled = false;
+        setMessage(bulkImportMsg, `已完成匯入 ${importedCount} 筆圖片法語。若有重複檔名，系統會直接覆蓋同一筆資料，不會重複新增。`, 'ok');
+        await loadItems();
+      } catch (err) {
+        setMessage(bulkImportMsg, '圖片批量匯入失敗：' + err.message, 'err');
+        importBulkBtn.disabled = false;
+        previewBulkBtn.disabled = false;
+      }
+    });
+
+    clearBulkBtn.addEventListener('click', () => {
+      bulkImageInput.value = '';
+      parsedBulkRows = [];
+      bulkPreviewBox.innerHTML = '';
+      bulkPreviewBox.classList.add('hidden');
+      importBulkBtn.disabled = true;
+      setMessage(bulkImportMsg, '');
     });
 
     downloadTemplateBtn.addEventListener('click', () => {
