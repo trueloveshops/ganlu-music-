@@ -960,7 +960,7 @@ function getValidLocalQuotes() {
   if (!Array.isArray(LEGACY_QUOTES)) return [];
   return LEGACY_QUOTES
     .map(normalizeQuoteDoc)
-    .filter(item => item.content);
+    .filter(item => item.content || item.imageFile);
 }
 
 function getRandomIndex(max) {
@@ -997,7 +997,7 @@ function readQuoteCache() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeQuoteDoc).filter(item => item.content && item.published !== false);
+    return parsed.map(normalizeQuoteDoc).filter(item => (item.content || item.imageFile) && item.published !== false);
   } catch (e) {
     return [];
   }
@@ -1200,7 +1200,7 @@ function subscribeFirebaseSingleSource() {
       const raw = d.data() || {};
       const item = normalizeQuoteDoc(raw);
       item._order = Number(raw.order || 0);
-      if (item.content && item.published !== false) rows.push(item);
+      if ((item.content || item.imageFile) && item.published !== false) rows.push(item);
     });
 
     const orderedRows = prioritizeLatestQuote(rows);
