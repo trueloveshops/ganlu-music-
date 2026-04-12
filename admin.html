@@ -274,23 +274,6 @@
         <div id="previewBox" class="preview-box hidden"></div>
       </div>
 
-
-      <div class="card">
-        <h2>批量匯入法語圖片（支援貼路徑）</h2>
-        <div class="help">先把圖片上傳到 GitHub 的 <code>/images/fayu/</code>，再把本機完整路徑或檔名整批貼到下方。</div>
-        <div class="help">支援格式範例：<code>C:\Users\你\Pictures\19881206.jpg</code>、<code>19890112.jpg</code>。系統會自動轉成 <code>fayu/檔名</code>，並從 8 碼日期檔名自動填入日期。</div>
-        <div class="field">
-          <textarea id="bulkImageInput" placeholder="一行一個路徑或檔名，例如：&#10;C:\Users\you\Pictures\19881206.jpg&#10;19890112.jpg&#10;19901029.jpg"></textarea>
-        </div>
-        <div class="toolbar">
-          <button id="previewBulkBtn" class="btn blue" type="button">預覽圖片匯入</button>
-          <button id="importBulkBtn" class="btn primary" type="button" disabled>一鍵匯入圖片法語</button>
-          <button id="clearBulkBtn" class="btn gray" type="button">清空內容</button>
-        </div>
-        <div id="bulkImportMsg" class="msg"></div>
-        <div id="bulkPreviewBox" class="preview-box hidden"></div>
-      </div>
-
       <div class="card">
         <h2>外觀主題控制</h2>
         <div class="section-note">這些設定會存進 Firebase，前台若有讀取外觀設定，就會立即套用。</div>
@@ -365,6 +348,7 @@
           <button id="exportCsvBtn" class="btn blue" type="button">匯出 CSV</button>
           <button id="exportPublishedJsonBtn" class="btn gray" type="button">匯出已發布 JSON</button>
           <button id="clearAllBtn" class="btn danger" type="button">清空全部資料</button>
+          <button id="fixImagePathsBtn" class="btn gray" type="button">一鍵修正圖片路徑</button>
         </div>
         <div class="section-note">前台仍使用 Firebase 即時更新。匯出檔案可作為備份。</div>
         <div id="exportMsg" class="msg"></div>
@@ -433,13 +417,6 @@
     const importMsg = document.getElementById('importMsg');
     const previewBox = document.getElementById('previewBox');
 
-    const bulkImageInput = document.getElementById('bulkImageInput');
-    const previewBulkBtn = document.getElementById('previewBulkBtn');
-    const importBulkBtn = document.getElementById('importBulkBtn');
-    const clearBulkBtn = document.getElementById('clearBulkBtn');
-    const bulkImportMsg = document.getElementById('bulkImportMsg');
-    const bulkPreviewBox = document.getElementById('bulkPreviewBox');
-
     const themeName = document.getElementById('themeName');
     const quoteFontFamily = document.getElementById('quoteFontFamily');
     const titleFontFamily = document.getElementById('titleFontFamily');
@@ -456,6 +433,7 @@
     const exportCsvBtn = document.getElementById('exportCsvBtn');
     const exportPublishedJsonBtn = document.getElementById('exportPublishedJsonBtn');
     const clearAllBtn = document.getElementById('clearAllBtn');
+    const fixImagePathsBtn = document.getElementById('fixImagePathsBtn');
     const exportMsg = document.getElementById('exportMsg');
 
     const searchInput = document.getElementById('searchInput');
@@ -467,7 +445,6 @@
     let isSaving = false;
     let isLoggingIn = false;
     let parsedRows = [];
-    let parsedBulkRows = [];
     let allItems = [];
 
     function setMessage(el, text = '', type = '') {
@@ -496,10 +473,9 @@
       if (/^https?:\/\//i.test(value)) return value;
       return base + encodeURIComponent(value).replace(/%2F/g, '/');
     }
-    function getTitleFromText(value, fallback = '') {
+    function getTitleFromText(value) {
       const t = String(value || '').trim();
-      const f = String(fallback || '').trim();
-      return (t || f || '未命名').slice(0, 20);
+      return t ? t.slice(0, 20) : '未命名';
     }
     function hashString(str) {
       let hash = 5381;
@@ -520,18 +496,15 @@
     }
     function payloadFromFields(obj) {
       const textValue = String(obj.text || '').trim();
-      const dateValue = String(obj.date || '').trim();
-      const audioValue = String(obj.audioFile || '').trim();
-      const imageValue = String(obj.imageFile || '').trim();
       return {
-        title: getTitleFromText(textValue, imageValue || audioValue || dateValue),
+        title: getTitleFromText(textValue),
         text: textValue,
-        date: dateValue,
+        date: String(obj.date || '').trim(),
         url: String(obj.url || '').trim(),
-        audioFile: audioValue,
-        imageFile: imageValue,
-        audioUrl: buildUrl(AUDIO_BASE, audioValue),
-        imageUrl: buildUrl(IMAGE_BASE, imageValue),
+        audioFile: String(obj.audioFile || '').trim(),
+        imageFile: String(obj.imageFile || '').trim(),
+        audioUrl: buildUrl(AUDIO_BASE, obj.audioFile || ''),
+        imageUrl: buildUrl(IMAGE_BASE, obj.imageFile || ''),
         order: Number(obj.order || 0),
         published: normalizePublished(obj.published),
         updatedAt: serverTimestamp()
@@ -610,51 +583,6 @@
         return obj;
       });
     }
-    function extractFilenameFromAnyPath(input) {
-      return String(input || '').trim().split(/[\\/]/).pop().trim();
-    }
-    function normalizeImagePath(input) {
-      const raw = String(input || '').trim();
-      if (!raw) return '';
-      if (/^https?:\/\//i.test(raw)) return raw;
-      const filename = extractFilenameFromAnyPath(raw);
-      if (!filename) return '';
-      if (/^fayu\//i.test(raw)) return raw.replace(/^\/*/, '');
-      if (/^images\/fayu\//i.test(raw)) return raw.replace(/^images\//i, '').replace(/^\/*/, '');
-      return 'fayu/' + filename;
-    }
-    function inferDateFromFilename(input) {
-      const filename = extractFilenameFromAnyPath(input);
-      const m = filename.match(/(19|20)\d{6}/);
-      if (!m) return '';
-      const v = m[0];
-      return `${v.slice(0,4)}.${v.slice(4,6)}.${v.slice(6,8)}`;
-    }
-    function buildBulkImageRows(rawText) {
-      const lines = String(rawText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-      const seen = new Set();
-      const rows = [];
-      for (const line of lines) {
-        const raw = line.trim();
-        if (!raw) continue;
-        const imagePath = normalizeImagePath(raw);
-        const filename = extractFilenameFromAnyPath(raw);
-        if (!imagePath || !filename) continue;
-        const key = imagePath.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        rows.push({
-          text: '',
-          date: inferDateFromFilename(filename),
-          url: '',
-          audioFile: '',
-          imageFile: imagePath,
-          order: 0,
-          published: true
-        });
-      }
-      return rows;
-    }
 
     async function loadItems() {
       const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
@@ -681,7 +609,7 @@
         const publishedText = item.published === false ? '下架' : '發布';
         return `
           <div class="item">
-            <div class="item-title">${escapeHtml(item.text || item.imageFile || item.audioFile || item.date || '未命名')}</div>
+            <div class="item-title">${escapeHtml(item.text || '未命名')}</div>
             <div class="meta">排序：${Number(item.order || 0)} ｜ 狀態：${publishedText}\n日期/來源：${escapeHtml(item.date || '') || '—'}\n網址：${item.url ? `<span class="small-link">${escapeHtml(item.url)}</span>` : '—'}\n音檔：${escapeHtml(item.audioFile || '') || '—'}\n圖片：${escapeHtml(item.imageFile || '') || '—'}</div>
             <div class="actions">
               <button class="btn primary" type="button" data-edit="${item.id}">編輯</button>
@@ -798,6 +726,78 @@
       }
     }
 
+
+    function deriveImageRelativePath(raw) {
+      let value = String(raw || '').trim();
+      if (!value) return '';
+      value = value.replace(/^['"]+|['"]+$/g, '').trim();
+
+      // Sometimes pasted local paths get duplicated back-to-back; keep the first valid segment.
+      const repeatedWin = value.match(/^([A-Za-z]:\\[^"]+?\.[A-Za-z0-9]+)(?:"?\1)+$/);
+      if (repeatedWin) value = repeatedWin[1];
+      const repeatedPosix = value.match(/^((?:\/|https?:\/\/)[^"]+?\.[A-Za-z0-9]+)(?:"?\1)+$/);
+      if (repeatedPosix) value = repeatedPosix[1];
+
+      const normalized = value.replace(/\\/g, '/');
+      if (/^https?:\/\//i.test(normalized)) {
+        const idx = normalized.toLowerCase().indexOf('/images/');
+        if (idx >= 0) return normalized.slice(idx + '/images/'.length).replace(/^\/+/, '');
+        return normalized;
+      }
+
+      const imagesIdx = normalized.toLowerCase().lastIndexOf('/images/');
+      if (imagesIdx >= 0) {
+        return normalized.slice(imagesIdx + '/images/'.length).replace(/^\/+/, '');
+      }
+
+      const parts = normalized.split('/').filter(Boolean);
+      if (!parts.length) return '';
+
+      const last = parts[parts.length - 1];
+      const prev = parts.length > 1 ? parts[parts.length - 2] : '';
+      if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(last)) {
+        if (prev && !/^(downloads|desktop|documents|images|music)$/i.test(prev)) {
+          return `${prev}/${last}`;
+        }
+        return last;
+      }
+      return normalized;
+    }
+
+    async function fixAllImagePaths() {
+      if (!confirm('確定要修正現有圖片路徑嗎？\n會將本機完整路徑改成 GitHub 可用的相對路徑。')) return;
+      try {
+        fixImagePathsBtn.disabled = true;
+        setMessage(exportMsg, '修正中…', 'warn');
+
+        const snap = await getDocs(collection(db, 'phrases'));
+        let changed = 0;
+
+        for (const row of snap.docs) {
+          const data = row.data() || {};
+          const original = String(data.imageFile || '').trim();
+          if (!original) continue;
+
+          const fixed = deriveImageRelativePath(original);
+          if (!fixed || fixed === original) continue;
+
+          await updateDoc(doc(db, 'phrases', row.id), {
+            imageFile: fixed,
+            imageUrl: buildUrl(IMAGE_BASE, fixed),
+            updatedAt: serverTimestamp()
+          });
+          changed++;
+        }
+
+        setMessage(exportMsg, changed ? `已修正 ${changed} 筆圖片路徑。` : '沒有需要修正的圖片路徑。', changed ? 'ok' : 'warn');
+        await loadItems();
+      } catch (err) {
+        setMessage(exportMsg, '修正失敗：' + err.message, 'err');
+      } finally {
+        fixImagePathsBtn.disabled = false;
+      }
+    }
+
     onAuthStateChanged(auth, async (user) => {
       if (user && String(user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         showAdmin();
@@ -857,20 +857,16 @@
     saveBtn.addEventListener('click', async () => {
       if (isSaving) return;
       const textValue = textEl.value.trim();
-      const dateValue = dateEl.value.trim();
-      const urlValue = urlEl.value.trim();
-      const audioValue = audioFile.value.trim();
-      const imageValue = imageFile.value.trim();
-      if (!textValue && !dateValue && !urlValue && !audioValue && !imageValue) {
-        setMessage(saveMsg, '請至少填寫法語、日期、網址、音檔或圖片其中一項。', 'err');
+      if (!textValue) {
+        setMessage(saveMsg, '請填寫法語內容。', 'err');
         return;
       }
       const payload = payloadFromFields({
         text: textValue,
-        date: dateValue,
-        url: urlValue,
-        audioFile: audioValue,
-        imageFile: imageValue,
+        date: dateEl.value,
+        url: urlEl.value,
+        audioFile: audioFile.value,
+        imageFile: imageFile.value,
         order: orderEl.value,
         published: published.value
       });
@@ -983,75 +979,6 @@
       }
     });
 
-    previewBulkBtn.addEventListener('click', async () => {
-      parsedBulkRows = [];
-      bulkPreviewBox.innerHTML = '';
-      bulkPreviewBox.classList.add('hidden');
-      importBulkBtn.disabled = true;
-      const rows = buildBulkImageRows(bulkImageInput.value);
-      if (!rows.length) {
-        setMessage(bulkImportMsg, '請貼上一行一個的圖片路徑或檔名。', 'err');
-        return;
-      }
-      parsedBulkRows = rows;
-      bulkPreviewBox.classList.remove('hidden');
-      bulkPreviewBox.innerHTML = rows.slice(0, 30).map((row, idx) => `
-        <div class="preview-row">
-          <strong>${idx + 1}. ${escapeHtml(row.imageFile)}</strong><br>
-          <span>date: ${escapeHtml(row.date || '—')}</span> ｜
-          <span>published: true</span>
-        </div>
-      `).join('');
-      if (rows.length > 30) bulkPreviewBox.innerHTML += `<div class="preview-row">只顯示前 30 筆，實際將匯入 ${rows.length} 筆。</div>`;
-      importBulkBtn.disabled = false;
-      setMessage(bulkImportMsg, `預覽完成，可匯入 ${rows.length} 筆圖片法語。`, 'ok');
-    });
-
-    importBulkBtn.addEventListener('click', async () => {
-      if (!parsedBulkRows.length) {
-        setMessage(bulkImportMsg, '請先預覽圖片匯入內容。', 'err');
-        return;
-      }
-      importBulkBtn.disabled = true;
-      previewBulkBtn.disabled = true;
-      setMessage(bulkImportMsg, '匯入中...', 'warn');
-      try {
-        const chunkSize = 200;
-        for (let i = 0; i < parsedBulkRows.length; i += chunkSize) {
-          const chunk = parsedBulkRows.slice(i, i + chunkSize);
-          const batch = writeBatch(db);
-          chunk.forEach(row => {
-            const payload = payloadFromFields(row);
-            const stableId = buildDeterministicId(payload);
-            batch.set(doc(db, 'phrases', stableId), { ...payload, createdAt: serverTimestamp() }, { merge: true });
-          });
-          await batch.commit();
-        }
-        const importedCount = parsedBulkRows.length;
-        parsedBulkRows = [];
-        bulkImageInput.value = '';
-        bulkPreviewBox.innerHTML = '';
-        bulkPreviewBox.classList.add('hidden');
-        importBulkBtn.disabled = true;
-        previewBulkBtn.disabled = false;
-        setMessage(bulkImportMsg, `已完成匯入 ${importedCount} 筆圖片法語。若有重複檔名，系統會直接覆蓋同一筆資料，不會重複新增。`, 'ok');
-        await loadItems();
-      } catch (err) {
-        setMessage(bulkImportMsg, '圖片批量匯入失敗：' + err.message, 'err');
-        importBulkBtn.disabled = false;
-        previewBulkBtn.disabled = false;
-      }
-    });
-
-    clearBulkBtn.addEventListener('click', () => {
-      bulkImageInput.value = '';
-      parsedBulkRows = [];
-      bulkPreviewBox.innerHTML = '';
-      bulkPreviewBox.classList.add('hidden');
-      importBulkBtn.disabled = true;
-      setMessage(bulkImportMsg, '');
-    });
-
     downloadTemplateBtn.addEventListener('click', () => {
       const content = [
         'text,date,url,audioFile,imageFile,order,published',
@@ -1091,6 +1018,8 @@
     exportJsonBtn.addEventListener('click', () => exportData('json'));
     exportCsvBtn.addEventListener('click', () => exportData('csv'));
     exportPublishedJsonBtn.addEventListener('click', () => exportData('json', true));
+
+    fixImagePathsBtn.addEventListener('click', fixAllImagePaths);
 
     clearAllBtn.addEventListener('click', async () => {
       if (!confirm('確定要清空全部法語資料？此動作無法復原。')) return;
