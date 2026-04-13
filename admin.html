@@ -132,7 +132,7 @@
     }
     .admin-title{font-size:32px;color:#274a70;font-weight:800;margin:0}
     .header-actions{display:flex;gap:10px;flex-wrap:wrap}
-    .btn{background:#e9eff6;color:#274a70;font-weight:700}
+    .btn{background:#e9eff6;color:#274a70;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
     .btn.primary{background:var(--blue);color:#fff}
     .btn.primary:hover,.login-btn:hover{background:var(--blue-dark)}
     .btn.blue{background:#5d8fe5;color:#fff}
@@ -203,7 +203,7 @@
       <div class="admin-header">
         <h1 class="admin-title">甘露法語後台管理</h1>
         <div class="header-actions">
-          <a href="index.html" class="btn gray" style="text-decoration:none;display:inline-flex;align-items:center;">退回首頁</a>
+          <a href="index.html" class="btn gray">退回首頁</a>
           <button id="refreshBtn" class="btn gray" type="button">重新整理資料</button>
           <button id="logoutBtn" class="btn danger" type="button">登出</button>
         </div>
@@ -261,20 +261,18 @@
       </div>
 
       <div class="card">
-        <h2>圖片法語快速匯入</h2>
-        <div class="section-note">先把圖片上傳到 GitHub 的 <code>images/fayu/</code>，再到本機資料夾全選圖片，按 Shift + 右鍵複製路徑，把整串路徑貼到下方。</div>
-        <div class="section-note">系統會自動幫你：抓檔名、補上 <code>fayu/</code>、把 <code>19881206</code> 轉成 <code>1988.12.06</code>、建立或覆蓋同檔名的 Firebase 資料。</div>
-        <div class="field">
-          <label for="imageBulkPaths">預覽圖片匯入</label>
-          <textarea id="imageBulkPaths" placeholder='請直接貼上複製的完整路徑，一行一張，例如：&#10;"C:\Users\user\Downloads\ganlu-music-\images\fayu\19881206.jpg"&#10;"C:\Users\user\Downloads\ganlu-music-\images\fayu\19890115.jpg"'></textarea>
-        </div>
+        <h2>批量匯入圖片法語</h2>
+        <div class="section-note">先把圖片上傳到 GitHub 的 <code>images/fayu/</code>，再把電腦資料夾內圖片用 Shift + 右鍵複製路徑後整批貼到下方。</div>
+        <label for="imageBulkPaths">圖片路徑清單</label>
+        <textarea id="imageBulkPaths" placeholder="例如：
+C:\Users\user\Downloads\fayu\19881206.jpg
+C:\Users\user\Downloads\fayu\19970913.jpg"></textarea>
         <div class="toolbar">
           <button id="previewImageImportBtn" class="btn blue" type="button">預覽圖片匯入</button>
-          <button id="runImageImportBtn" class="btn primary" type="button" disabled>一鍵匯入圖片法語</button>
-          <button id="clearImageImportBtn" class="btn gray" type="button">清空</button>
+          <button id="importImageImportBtn" class="btn primary" type="button" disabled>一鍵匯入圖片法語</button>
         </div>
         <div id="imageImportMsg" class="msg"></div>
-        <div id="imageImportPreviewBox" class="preview-box hidden"></div>
+        <div id="imageImportPreview" class="preview-box hidden"></div>
       </div>
 
       <div class="card">
@@ -436,10 +434,9 @@
     const previewBox = document.getElementById('previewBox');
     const imageBulkPaths = document.getElementById('imageBulkPaths');
     const previewImageImportBtn = document.getElementById('previewImageImportBtn');
-    const runImageImportBtn = document.getElementById('runImageImportBtn');
-    const clearImageImportBtn = document.getElementById('clearImageImportBtn');
+    const importImageImportBtn = document.getElementById('importImageImportBtn');
     const imageImportMsg = document.getElementById('imageImportMsg');
-    const imageImportPreviewBox = document.getElementById('imageImportPreviewBox');
+    const imageImportPreview = document.getElementById('imageImportPreview');
 
     const themeName = document.getElementById('themeName');
     const quoteFontFamily = document.getElementById('quoteFontFamily');
@@ -484,6 +481,45 @@
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
     }
+    function extractFilename(input) {
+      const value = String(input || '').trim().replace(/^"|"$/g, '');
+      if (!value) return '';
+      const normalized = value.replace(/\+/g, '/');
+      return normalized.split('/').pop().trim();
+    }
+
+    function autoFilenameOnly(inputEl) {
+      if (!inputEl) return;
+      const filename = extractFilename(inputEl.value);
+      if (filename) inputEl.value = filename;
+    }
+
+    function formatDateFromFilename(filename) {
+      const base = String(filename || '').replace(/\.[^.]+$/, '');
+      const digits = (base.match(/(19|20)\d{6}/) || [''])[0];
+      if (!digits) return '';
+      return `${digits.slice(0,4)}.${digits.slice(4,6)}.${digits.slice(6,8)}`;
+    }
+
+    function buildImageImportRows(rawText) {
+      return String(rawText || '').split(/?
+/).map(line => line.trim()).filter(Boolean).map((line, idx) => {
+        const filename = extractFilename(line);
+        const date = formatDateFromFilename(filename);
+        return {
+          text: '',
+          date,
+          url: '',
+          audioFile: '',
+          imageFile: filename ? `fayu/${filename}` : '',
+          order: 0,
+          published: true,
+          filename,
+          idx: idx + 1
+        };
+      }).filter(row => row.filename);
+    }
+
     function showLogin() {
       loginView.classList.remove('hidden');
       adminView.classList.add('hidden');
@@ -626,57 +662,6 @@
       }
       const [, y, m, d, ext] = match;
       return `${folder}/${y}${m}${d}${ext.toLowerCase()}`;
-    }
-
-    function deriveDateFromFilename(value) {
-      const filename = extractFilenameFromAnyPath(value);
-      if (!filename) return '';
-      const stem = filename.replace(/\.[^.]+$/, '');
-      const match = stem.match(/(\d{4})[.\-_]?(\d{2})[.\-_]?(\d{2})/);
-      if (!match) return '';
-      return `${match[1]}.${match[2]}.${match[3]}`;
-    }
-
-    function normalizeImageImportPath(value, folder = 'fayu') {
-      const filename = extractFilenameFromAnyPath(value);
-      if (!filename) return '';
-      const match = filename.match(/(\d{4})[.\-_]?(\d{2})[.\-_]?(\d{2})(\.[A-Za-z0-9]+)$/);
-      if (!match) return `${folder}/${filename}`;
-      const [, y, m, d, ext] = match;
-      return `${folder}/${y}${m}${d}${ext.toLowerCase()}`;
-    }
-
-    function buildImageImportId(imageFileValue) {
-      return 'img_' + hashString(String(imageFileValue || '').trim()).replace(/^p_/, '');
-    }
-
-    function autoFilenameOnly(inputEl) {
-      if (!inputEl) return;
-      const raw = String(inputEl.value || '').trim();
-      if (!raw) return;
-      const filename = extractFilenameFromAnyPath(raw);
-      if (filename && filename !== raw) inputEl.value = filename;
-    }
-
-    function parseImageImportLines(text) {
-      return String(text || '')
-        .replace(/
-/g, '
-')
-        .replace(//g, '
-')
-        .split('
-')
-        .map(line => line.trim())
-        .filter(Boolean)
-        .map((line, index) => {
-          const original = line.replace(/^"+|"+$/g, '').trim();
-          const filename = extractFilenameFromAnyPath(original);
-          const imageFile = normalizeImageImportPath(original, 'fayu');
-          const date = deriveDateFromFilename(filename);
-          return { index: index + 1, original, filename, imageFile, date };
-        })
-        .filter(row => row.filename && row.imageFile);
     }
 
     async function fixImagePathsToFayu2() {
@@ -919,8 +904,8 @@
     resetBtn.addEventListener('click', clearForm);
 
     ['paste','blur','change'].forEach(evt => {
-      audioFile.addEventListener(evt, () => autoFilenameOnly(audioFile));
-      imageFile.addEventListener(evt, () => autoFilenameOnly(imageFile));
+      audioFile.addEventListener(evt, () => setTimeout(() => autoFilenameOnly(audioFile), 0));
+      imageFile.addEventListener(evt, () => setTimeout(() => autoFilenameOnly(imageFile), 0));
     });
 
     saveBtn.addEventListener('click', async () => {
@@ -965,83 +950,60 @@
     });
 
     previewImageImportBtn.addEventListener('click', async () => {
-      parsedImageRows = [];
-      imageImportPreviewBox.innerHTML = '';
-      imageImportPreviewBox.classList.add('hidden');
-      runImageImportBtn.disabled = true;
-      const rows = parseImageImportLines(imageBulkPaths.value);
-      if (!rows.length) {
-        setMessage(imageImportMsg, '請先貼上圖片完整路徑。', 'err');
-        return;
-      }
-      parsedImageRows = rows;
-      imageImportPreviewBox.innerHTML = rows.slice(0, 300).map(row => {
-        return `<div class="preview-row">${row.index}. ${escapeHtml(row.filename)} → ${escapeHtml(row.imageFile)}${row.date ? ` ｜ ${escapeHtml(row.date)}` : ''}</div>`;
-      }).join('');
-      imageImportPreviewBox.classList.remove('hidden');
-      runImageImportBtn.disabled = false;
-      setMessage(imageImportMsg, `已預覽 ${rows.length} 筆圖片路徑。`, 'ok');
-    });
-
-    clearImageImportBtn.addEventListener('click', () => {
-      parsedImageRows = [];
-      imageBulkPaths.value = '';
-      imageImportPreviewBox.innerHTML = '';
-      imageImportPreviewBox.classList.add('hidden');
-      runImageImportBtn.disabled = true;
-      setMessage(imageImportMsg, '');
-    });
-
-    runImageImportBtn.addEventListener('click', async () => {
+      parsedImageRows = buildImageImportRows(imageBulkPaths.value);
+      imageImportPreview.innerHTML = '';
+      imageImportPreview.classList.add('hidden');
+      importImageImportBtn.disabled = true;
       if (!parsedImageRows.length) {
-        setMessage(imageImportMsg, '請先按「預覽圖片匯入」。', 'err');
+        setMessage(imageImportMsg, '請先貼上圖片路徑。', 'err');
         return;
       }
-      runImageImportBtn.disabled = true;
-      runImageImportBtn.textContent = '匯入中...';
-      try {
-        const snap = await getDocs(collection(db, 'phrases'));
-        let maxOrder = 0;
-        snap.forEach(d => {
-          const n = Number(d.data()?.order || 0);
-          if (Number.isFinite(n)) maxOrder = Math.max(maxOrder, n);
-        });
+      imageImportPreview.classList.remove('hidden');
+      imageImportPreview.innerHTML = parsedImageRows.slice(0, 20).map((row, idx) => `
+        <div class="preview-row">
+          <strong>${idx + 1}. ${escapeHtml(row.filename)}</strong><br>
+          <span>imageFile: ${escapeHtml(row.imageFile)}</span><br>
+          <span>date: ${escapeHtml(row.date || '')}</span>
+        </div>
+      `).join('');
+      if (parsedImageRows.length > 20) imageImportPreview.innerHTML += `<div class="preview-row">只顯示前 20 筆，實際將匯入 ${parsedImageRows.length} 筆。</div>`;
+      importImageImportBtn.disabled = false;
+      setMessage(imageImportMsg, `預覽完成，可匯入 ${parsedImageRows.length} 筆圖片法語。`, 'ok');
+    });
 
-        let batch = writeBatch(db);
-        let ops = 0;
-        let imported = 0;
-        for (const row of parsedImageRows) {
-          const payload = {
-            title: row.date || row.filename.replace(/\.[^.]+$/, ''),
-            text: '',
-            date: row.date,
-            url: '',
-            audioFile: '',
-            imageFile: row.imageFile,
-            audioUrl: '',
-            imageUrl: buildUrl(IMAGE_BASE, row.imageFile),
-            order: maxOrder + row.index,
-            published: true,
-            updatedAt: serverTimestamp(),
-            createdAt: serverTimestamp()
-          };
-          batch.set(doc(db, 'phrases', buildImageImportId(row.imageFile)), payload, { merge: true });
-          ops++;
-          imported++;
-          if (ops === 200) {
-            await batch.commit();
-            batch = writeBatch(db);
-            ops = 0;
-          }
+    importImageImportBtn.addEventListener('click', async () => {
+      if (!parsedImageRows.length) {
+        setMessage(imageImportMsg, '請先預覽圖片匯入。', 'err');
+        return;
+      }
+      importImageImportBtn.disabled = true;
+      previewImageImportBtn.disabled = true;
+      setMessage(imageImportMsg, '匯入中...', 'warn');
+      try {
+        const chunkSize = 200;
+        for (let i = 0; i < parsedImageRows.length; i += chunkSize) {
+          const chunk = parsedImageRows.slice(i, i + chunkSize);
+          const batch = writeBatch(db);
+          chunk.forEach(row => {
+            const payload = payloadFromFields(row);
+            const stableId = `img_${String(row.filename).toLowerCase()}`;
+            batch.set(doc(db, 'phrases', stableId), { ...payload, createdAt: serverTimestamp() }, { merge: true });
+          });
+          await batch.commit();
         }
-        if (ops > 0) await batch.commit();
-        setMessage(imageImportMsg, `已完成匯入 ${imported} 筆圖片法語。若有重複檔名，系統會直接覆蓋同一筆資料，不會重複新增。`, 'ok');
+        const importedCount = parsedImageRows.length;
+        parsedImageRows = [];
+        imageBulkPaths.value = '';
+        imageImportPreview.innerHTML = '';
+        imageImportPreview.classList.add('hidden');
+        importImageImportBtn.disabled = true;
+        previewImageImportBtn.disabled = false;
+        setMessage(imageImportMsg, `已完成匯入 ${importedCount} 筆圖片法語。若有重複檔名，系統會直接覆蓋同一筆資料，不會重複新增。`, 'ok');
         await loadItems();
       } catch (err) {
         setMessage(imageImportMsg, '圖片法語匯入失敗：' + err.message, 'err');
-      } finally {
-        runImageImportBtn.disabled = false;
-        runImageImportBtn.textContent = '一鍵匯入圖片法語';
+        importImageImportBtn.disabled = false;
+        previewImageImportBtn.disabled = false;
       }
     });
 
