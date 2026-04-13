@@ -539,15 +539,17 @@
     }
     function payloadFromFields(obj) {
       const textValue = String(obj.text || '').trim();
+      const normalizedAudioFile = extractFilenameFromAnyPath(obj.audioFile || '');
+      const normalizedImageFile = extractFilenameFromAnyPath(obj.imageFile || '');
       return {
         title: getTitleFromText(textValue),
         text: textValue,
         date: String(obj.date || '').trim(),
         url: String(obj.url || '').trim(),
-        audioFile: String(obj.audioFile || '').trim(),
-        imageFile: String(obj.imageFile || '').trim(),
-        audioUrl: buildUrl(AUDIO_BASE, obj.audioFile || ''),
-        imageUrl: buildUrl(IMAGE_BASE, obj.imageFile || ''),
+        audioFile: normalizedAudioFile,
+        imageFile: normalizedImageFile,
+        audioUrl: buildUrl(AUDIO_BASE, normalizedAudioFile),
+        imageUrl: buildUrl(IMAGE_BASE, normalizedImageFile),
         order: normalizeOrderValue(obj.order),
         published: normalizePublished(obj.published),
         updatedAt: serverTimestamp()
@@ -924,6 +926,9 @@
       setMessage(saveMsg, '資料已重新整理。', 'ok');
     });
     resetBtn.addEventListener('click', clearForm);
+
+    attachFilenameExtractor(audioFile);
+    attachFilenameExtractor(imageFile);
 
     saveBtn.addEventListener('click', async () => {
       if (isSaving) return;
