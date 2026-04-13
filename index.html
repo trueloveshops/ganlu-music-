@@ -1176,38 +1176,30 @@ function prioritizeLatestQuote(items = []) {
   const sorted = sortQuotesForRotation(items);
   if (sorted.length <= 1) return sorted;
 
-  const firstItem = sorted[0];
-  const remaining = sorted.slice(1);
-  const textItems = remaining.filter(item => !String(item?.imageFile || '').trim());
-  const imageItems = remaining.filter(item => String(item?.imageFile || '').trim());
-  const balanced = [firstItem];
+  const textItems = [];
+  const imageItems = [];
 
-  const pushTextBlock = (count = 3) => {
-    for (let i = 0; i < count && textItems.length; i += 1) {
-      balanced.push(textItems.shift());
-    }
-  };
+  sorted.forEach(item => {
+    if (String(item?.imageFile || '').trim()) imageItems.push(item);
+    else textItems.push(item);
+  });
 
-  const pushSingleImage = () => {
-    if (imageItems.length) balanced.push(imageItems.shift());
-  };
+  if (!textItems.length || !imageItems.length) return sorted;
 
-  if (String(firstItem?.imageFile || '').trim()) {
-    pushTextBlock(3);
-  }
-
+  const mixed = [];
   while (textItems.length || imageItems.length) {
-    pushTextBlock(3);
-    pushSingleImage();
-
+    for (let i = 0; i < 3 && textItems.length; i += 1) {
+      mixed.push(textItems.shift());
+    }
+    if (imageItems.length) {
+      mixed.push(imageItems.shift());
+    }
     if (!textItems.length && imageItems.length) {
-      balanced.push(...imageItems.splice(0));
-    } else if (!imageItems.length && textItems.length) {
-      balanced.push(...textItems.splice(0));
+      while (imageItems.length) mixed.push(imageItems.shift());
     }
   }
 
-  return balanced;
+  return mixed;
 }
 
 function subscribeFirebaseSingleSource() {
