@@ -203,7 +203,7 @@
       <div class="admin-header">
         <h1 class="admin-title">甘露法語後台管理</h1>
         <div class="header-actions">
-          <a href="index.html" class="btn gray" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">退回首頁</a>
+          <a href="index.html" class="btn gray" style="text-decoration:none;display:inline-flex;align-items:center;">退回首頁</a>
           <button id="refreshBtn" class="btn gray" type="button">重新整理資料</button>
           <button id="logoutBtn" class="btn danger" type="button">登出</button>
         </div>
@@ -258,6 +258,23 @@
           <button id="resetBtn" class="btn gray" type="button">清空</button>
         </div>
         <div id="saveMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h2>圖片法語快速匯入</h2>
+        <div class="section-note">先把圖片上傳到 GitHub 的 <code>images/fayu/</code>，再到本機資料夾全選圖片，按 Shift + 右鍵複製路徑，把整串路徑貼到下方。</div>
+        <div class="section-note">系統會自動幫你：抓檔名、補上 <code>fayu/</code>、把 <code>19881206</code> 轉成 <code>1988.12.06</code>、建立或覆蓋同檔名的 Firebase 資料。</div>
+        <div class="field">
+          <label for="imageBulkPaths">預覽圖片匯入</label>
+          <textarea id="imageBulkPaths" placeholder='請直接貼上複製的完整路徑，一行一張，例如：&#10;"C:\Users\user\Downloads\ganlu-music-\images\fayu\19881206.jpg"&#10;"C:\Users\user\Downloads\ganlu-music-\images\fayu\19890115.jpg"'></textarea>
+        </div>
+        <div class="toolbar">
+          <button id="previewImageImportBtn" class="btn blue" type="button">預覽圖片匯入</button>
+          <button id="runImageImportBtn" class="btn primary" type="button" disabled>一鍵匯入圖片法語</button>
+          <button id="clearImageImportBtn" class="btn gray" type="button">清空</button>
+        </div>
+        <div id="imageImportMsg" class="msg"></div>
+        <div id="imageImportPreviewBox" class="preview-box hidden"></div>
       </div>
 
       <div class="card">
@@ -318,7 +335,7 @@
           </div>
           <div>
             <label>提示</label>
-            <input type="text" value="首頁圖片法語已改為不顯示日期" readonly>
+            <input type="text" value="日期目前固定顯示" readonly>
           </div>
         </div>
         <div class="grid-3">
@@ -350,7 +367,6 @@
           <button id="exportPublishedJsonBtn" class="btn gray" type="button">匯出已發布 JSON</button>
           <button id="clearAllBtn" class="btn danger" type="button">清空全部資料</button>
           <button id="fixImagePathsBtn" class="btn danger" type="button">一鍵修正圖片路徑</button>
-          <button id="removeBrokenImagesBtn" class="btn danger" type="button">一鍵清除破圖</button>
         </div>
         <div class="section-note">前台仍使用 Firebase 即時更新。匯出檔案可作為備份。</div>
         <div id="exportMsg" class="msg"></div>
@@ -418,6 +434,12 @@
     const clearBeforeImport = document.getElementById('clearBeforeImport');
     const importMsg = document.getElementById('importMsg');
     const previewBox = document.getElementById('previewBox');
+    const imageBulkPaths = document.getElementById('imageBulkPaths');
+    const previewImageImportBtn = document.getElementById('previewImageImportBtn');
+    const runImageImportBtn = document.getElementById('runImageImportBtn');
+    const clearImageImportBtn = document.getElementById('clearImageImportBtn');
+    const imageImportMsg = document.getElementById('imageImportMsg');
+    const imageImportPreviewBox = document.getElementById('imageImportPreviewBox');
 
     const themeName = document.getElementById('themeName');
     const quoteFontFamily = document.getElementById('quoteFontFamily');
@@ -436,7 +458,6 @@
     const exportPublishedJsonBtn = document.getElementById('exportPublishedJsonBtn');
     const clearAllBtn = document.getElementById('clearAllBtn');
     const fixImagePathsBtn = document.getElementById('fixImagePathsBtn');
-    const removeBrokenImagesBtn = document.getElementById('removeBrokenImagesBtn');
     const exportMsg = document.getElementById('exportMsg');
 
     const searchInput = document.getElementById('searchInput');
@@ -448,6 +469,7 @@
     let isSaving = false;
     let isLoggingIn = false;
     let parsedRows = [];
+    let parsedImageRows = [];
     let allItems = [];
 
     function setMessage(el, text = '', type = '') {
@@ -497,60 +519,18 @@
       const v = String(value || '').trim().toLowerCase();
       return v === 'true' || v === '1' || v === 'yes' || v === 'y';
     }
-    function hasUsableManualOrder(item) {
-      const raw = item?.order;
-      if (raw === '' || raw === null || typeof raw === 'undefined') return false;
-      const num = Number(raw);
-      return Number.isFinite(num) && num > 0;
-    }
-    function getCreatedAtMs(value) {
-      if (!value) return 0;
-      if (typeof value?.toMillis === 'function') return value.toMillis();
-      if (typeof value?.seconds === 'number') return value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6);
-      const ms = new Date(value).getTime();
-      return Number.isFinite(ms) ? ms : 0;
-    }
-    function sortItemsForDisplay(rows = []) {
-      return rows.slice().sort((a, b) => {
-        const aHasOrder = hasUsableManualOrder(a);
-        const bHasOrder = hasUsableManualOrder(b);
-        if (aHasOrder && bHasOrder) {
-          const diff = Number(a.order) - Number(b.order);
-          if (diff !== 0) return diff;
-        } else if (aHasOrder !== bHasOrder) {
-          return aHasOrder ? -1 : 1;
-        }
-        const timeDiff = getCreatedAtMs(b.createdAt) - getCreatedAtMs(a.createdAt);
-        if (timeDiff !== 0) return timeDiff;
-        return String(a.text || a.imageFile || '').localeCompare(String(b.text || b.imageFile || ''), 'zh-Hant');
-      });
-    }
-    function normalizeOrderValue(value) {
-      const num = Number(value);
-      return Number.isFinite(num) && num > 0 ? num : 0;
-    }
-    function preloadImage(url) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-        img.src = url;
-      });
-    }
     function payloadFromFields(obj) {
       const textValue = String(obj.text || '').trim();
-      const normalizedAudioFile = extractFilenameFromAnyPath(obj.audioFile || '');
-      const normalizedImageFile = extractFilenameFromAnyPath(obj.imageFile || '');
       return {
         title: getTitleFromText(textValue),
         text: textValue,
         date: String(obj.date || '').trim(),
         url: String(obj.url || '').trim(),
-        audioFile: normalizedAudioFile,
-        imageFile: normalizedImageFile,
-        audioUrl: buildUrl(AUDIO_BASE, normalizedAudioFile),
-        imageUrl: buildUrl(IMAGE_BASE, normalizedImageFile),
-        order: normalizeOrderValue(obj.order),
+        audioFile: String(obj.audioFile || '').trim(),
+        imageFile: String(obj.imageFile || '').trim(),
+        audioUrl: buildUrl(AUDIO_BASE, obj.audioFile || ''),
+        imageUrl: buildUrl(IMAGE_BASE, obj.imageFile || ''),
+        order: Number(obj.order || 0),
         published: normalizePublished(obj.published),
         updatedAt: serverTimestamp()
       };
@@ -576,7 +556,7 @@
       urlEl.value = item.url || '';
       audioFile.value = item.audioFile || '';
       imageFile.value = item.imageFile || '';
-      orderEl.value = hasUsableManualOrder(item) ? Number(item.order) : '';
+      orderEl.value = Number(item.order || 0);
       published.value = item.published === false ? 'false' : 'true';
       setMessage(saveMsg, '已載入資料，可直接修改後儲存。', 'ok');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -648,6 +628,57 @@
       return `${folder}/${y}${m}${d}${ext.toLowerCase()}`;
     }
 
+    function deriveDateFromFilename(value) {
+      const filename = extractFilenameFromAnyPath(value);
+      if (!filename) return '';
+      const stem = filename.replace(/\.[^.]+$/, '');
+      const match = stem.match(/(\d{4})[.\-_]?(\d{2})[.\-_]?(\d{2})/);
+      if (!match) return '';
+      return `${match[1]}.${match[2]}.${match[3]}`;
+    }
+
+    function normalizeImageImportPath(value, folder = 'fayu') {
+      const filename = extractFilenameFromAnyPath(value);
+      if (!filename) return '';
+      const match = filename.match(/(\d{4})[.\-_]?(\d{2})[.\-_]?(\d{2})(\.[A-Za-z0-9]+)$/);
+      if (!match) return `${folder}/${filename}`;
+      const [, y, m, d, ext] = match;
+      return `${folder}/${y}${m}${d}${ext.toLowerCase()}`;
+    }
+
+    function buildImageImportId(imageFileValue) {
+      return 'img_' + hashString(String(imageFileValue || '').trim()).replace(/^p_/, '');
+    }
+
+    function autoFilenameOnly(inputEl) {
+      if (!inputEl) return;
+      const raw = String(inputEl.value || '').trim();
+      if (!raw) return;
+      const filename = extractFilenameFromAnyPath(raw);
+      if (filename && filename !== raw) inputEl.value = filename;
+    }
+
+    function parseImageImportLines(text) {
+      return String(text || '')
+        .replace(/
+/g, '
+')
+        .replace(//g, '
+')
+        .split('
+')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map((line, index) => {
+          const original = line.replace(/^"+|"+$/g, '').trim();
+          const filename = extractFilenameFromAnyPath(original);
+          const imageFile = normalizeImageImportPath(original, 'fayu');
+          const date = deriveDateFromFilename(filename);
+          return { index: index + 1, original, filename, imageFile, date };
+        })
+        .filter(row => row.filename && row.imageFile);
+    }
+
     async function fixImagePathsToFayu2() {
       if (!confirm('確定要把所有圖片路徑修正為 fayu2/純數字日期檔名？')) return;
       try {
@@ -689,53 +720,14 @@
     }
 
 
-    async function removeBrokenImages() {
-      if (!confirm('確定要檢查並清除 Firebase 中已失效的圖片欄位嗎？清除後首頁將不再顯示那些破圖。')) return;
-      try {
-        setMessage(exportMsg, '正在檢查破圖，請稍候…', 'warn');
-        const snap = await getDocs(collection(db, 'phrases'));
-        let checked = 0;
-        let changed = 0;
-        let batch = writeBatch(db);
-        let ops = 0;
-        for (const d of snap.docs) {
-          const data = d.data() || {};
-          const imageUrl = String(data.imageUrl || buildUrl(IMAGE_BASE, data.imageFile || '') || '').trim();
-          const imageFileValue = String(data.imageFile || '').trim();
-          if (!imageFileValue || !imageUrl) continue;
-          checked++;
-          const ok = await preloadImage(imageUrl);
-          if (!ok) {
-            batch.update(doc(db, 'phrases', d.id), {
-              imageFile: '',
-              imageUrl: '',
-              updatedAt: serverTimestamp()
-            });
-            changed++;
-            ops++;
-            if (ops === 50) {
-              await batch.commit();
-              batch = writeBatch(db);
-              ops = 0;
-            }
-          }
-        }
-        if (ops > 0) await batch.commit();
-        setMessage(exportMsg, `破圖檢查完成：共檢查 ${checked} 筆圖片，已清除 ${changed} 筆失效圖片。`, changed ? 'ok' : 'warn');
-        await loadItems();
-      } catch (err) {
-        setMessage(exportMsg, '清除破圖失敗：' + err.message, 'err');
-      }
-    }
-
     async function loadItems() {
       const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
       const snap = await getDocs(q);
       const rows = [];
       snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-      allItems = sortItemsForDisplay(rows);
+      allItems = rows;
       renderItems();
-      searchStatus.textContent = `目前共 ${rows.length} 筆資料；排序會先看手動排序，再看建立時間。`;
+      searchStatus.textContent = `目前共 ${rows.length} 筆資料。`;
     }
 
     function renderItems(keyword = '') {
@@ -836,7 +828,6 @@
         const snap = await getDocs(q);
         let rows = [];
         snap.forEach(d => rows.push(sanitizeExportRecord(d.data())));
-        rows = sortItemsForDisplay(rows);
         if (onlyPublished) rows = rows.filter(r => r.published);
         if (!rows.length) {
           setMessage(exportMsg, '目前沒有可匯出的資料。', 'warn');
@@ -927,8 +918,10 @@
     });
     resetBtn.addEventListener('click', clearForm);
 
-    attachFilenameExtractor(audioFile);
-    attachFilenameExtractor(imageFile);
+    ['paste','blur','change'].forEach(evt => {
+      audioFile.addEventListener(evt, () => autoFilenameOnly(audioFile));
+      imageFile.addEventListener(evt, () => autoFilenameOnly(imageFile));
+    });
 
     saveBtn.addEventListener('click', async () => {
       if (isSaving) return;
@@ -937,6 +930,8 @@
         setMessage(saveMsg, '請填寫法語內容。', 'err');
         return;
       }
+      autoFilenameOnly(audioFile);
+      autoFilenameOnly(imageFile);
       const payload = payloadFromFields({
         text: textValue,
         date: dateEl.value,
@@ -966,6 +961,87 @@
         isSaving = false;
         saveBtn.disabled = false;
         saveBtn.textContent = '儲存';
+      }
+    });
+
+    previewImageImportBtn.addEventListener('click', async () => {
+      parsedImageRows = [];
+      imageImportPreviewBox.innerHTML = '';
+      imageImportPreviewBox.classList.add('hidden');
+      runImageImportBtn.disabled = true;
+      const rows = parseImageImportLines(imageBulkPaths.value);
+      if (!rows.length) {
+        setMessage(imageImportMsg, '請先貼上圖片完整路徑。', 'err');
+        return;
+      }
+      parsedImageRows = rows;
+      imageImportPreviewBox.innerHTML = rows.slice(0, 300).map(row => {
+        return `<div class="preview-row">${row.index}. ${escapeHtml(row.filename)} → ${escapeHtml(row.imageFile)}${row.date ? ` ｜ ${escapeHtml(row.date)}` : ''}</div>`;
+      }).join('');
+      imageImportPreviewBox.classList.remove('hidden');
+      runImageImportBtn.disabled = false;
+      setMessage(imageImportMsg, `已預覽 ${rows.length} 筆圖片路徑。`, 'ok');
+    });
+
+    clearImageImportBtn.addEventListener('click', () => {
+      parsedImageRows = [];
+      imageBulkPaths.value = '';
+      imageImportPreviewBox.innerHTML = '';
+      imageImportPreviewBox.classList.add('hidden');
+      runImageImportBtn.disabled = true;
+      setMessage(imageImportMsg, '');
+    });
+
+    runImageImportBtn.addEventListener('click', async () => {
+      if (!parsedImageRows.length) {
+        setMessage(imageImportMsg, '請先按「預覽圖片匯入」。', 'err');
+        return;
+      }
+      runImageImportBtn.disabled = true;
+      runImageImportBtn.textContent = '匯入中...';
+      try {
+        const snap = await getDocs(collection(db, 'phrases'));
+        let maxOrder = 0;
+        snap.forEach(d => {
+          const n = Number(d.data()?.order || 0);
+          if (Number.isFinite(n)) maxOrder = Math.max(maxOrder, n);
+        });
+
+        let batch = writeBatch(db);
+        let ops = 0;
+        let imported = 0;
+        for (const row of parsedImageRows) {
+          const payload = {
+            title: row.date || row.filename.replace(/\.[^.]+$/, ''),
+            text: '',
+            date: row.date,
+            url: '',
+            audioFile: '',
+            imageFile: row.imageFile,
+            audioUrl: '',
+            imageUrl: buildUrl(IMAGE_BASE, row.imageFile),
+            order: maxOrder + row.index,
+            published: true,
+            updatedAt: serverTimestamp(),
+            createdAt: serverTimestamp()
+          };
+          batch.set(doc(db, 'phrases', buildImageImportId(row.imageFile)), payload, { merge: true });
+          ops++;
+          imported++;
+          if (ops === 200) {
+            await batch.commit();
+            batch = writeBatch(db);
+            ops = 0;
+          }
+        }
+        if (ops > 0) await batch.commit();
+        setMessage(imageImportMsg, `已完成匯入 ${imported} 筆圖片法語。若有重複檔名，系統會直接覆蓋同一筆資料，不會重複新增。`, 'ok');
+        await loadItems();
+      } catch (err) {
+        setMessage(imageImportMsg, '圖片法語匯入失敗：' + err.message, 'err');
+      } finally {
+        runImageImportBtn.disabled = false;
+        runImageImportBtn.textContent = '一鍵匯入圖片法語';
       }
     });
 
@@ -1108,7 +1184,6 @@
     });
 
     fixImagePathsBtn.addEventListener('click', fixImagePathsToFayu2);
-    removeBrokenImagesBtn.addEventListener('click', removeBrokenImages);
 
     runSearchBtn.addEventListener('click', () => {
       renderItems(searchInput.value);
