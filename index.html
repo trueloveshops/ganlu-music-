@@ -1283,6 +1283,17 @@ function dailyQuoteIndex() {
 }
 currentQuoteIndex = 0;
 
+function hasUsableManualOrder(item) {
+  const raw = item?._order ?? item?.order;
+  if (raw === '' || raw === null || typeof raw === 'undefined') return false;
+  const num = Number(raw);
+  return Number.isFinite(num) && num > 0;
+}
+
+function formatQuoteSource(item) {
+  return item && String(item.imageFile || '').trim() ? '' : String(item?.date || '').trim();
+}
+
 function renderQuote() {
   if (!QUOTES.length) {
     clearTimeout(renderQuote._timer);
@@ -1304,7 +1315,7 @@ function renderQuote() {
       const imgUrl = /^https?:\/\//i.test(imageFile)
         ? imageFile
         : `https://trueloveshops.github.io/ganlu-music-/images/${encodeURI(imageFile).replace(/%2F/g, '/')}`;
-      parts.push(`<img class="quote-image" src="${imgUrl}" alt="法語圖片" loading="eager" decoding="async">`);
+      parts.push(`<img class="quote-image" src="${imgUrl}" alt="法語圖片" loading="eager" decoding="async" onerror="this.style.display='none';">`);
     }
     if (item.content) {
       parts.push(`<div>${escapeHtml(item.content).replace(/\n/g, '<br>')}</div>`);
@@ -1314,7 +1325,7 @@ function renderQuote() {
     quoteText.style.opacity = '1';
   }, 80);
 
-  sourceLink.textContent = item.date || '';
+  sourceLink.textContent = formatQuoteSource(item);
   if (item.url && item.url.trim()) {
     sourceLink.href = item.url.trim();
     sourceLink.title = item.url.trim();

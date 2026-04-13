@@ -203,6 +203,7 @@
       <div class="admin-header">
         <h1 class="admin-title">甘露法語後台管理</h1>
         <div class="header-actions">
+          <a href="index.html" class="btn gray" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">退回首頁</a>
           <button id="refreshBtn" class="btn gray" type="button">重新整理資料</button>
           <button id="logoutBtn" class="btn danger" type="button">登出</button>
         </div>
@@ -317,7 +318,7 @@
           </div>
           <div>
             <label>提示</label>
-            <input type="text" value="日期目前固定顯示" readonly>
+            <input type="text" value="首頁圖片法語已改為不顯示日期" readonly>
           </div>
         </div>
         <div class="grid-3">
@@ -349,6 +350,7 @@
           <button id="exportPublishedJsonBtn" class="btn gray" type="button">匯出已發布 JSON</button>
           <button id="clearAllBtn" class="btn danger" type="button">清空全部資料</button>
           <button id="fixImagePathsBtn" class="btn danger" type="button">一鍵修正圖片路徑</button>
+          <button id="removeBrokenImagesBtn" class="btn danger" type="button">一鍵清除破圖</button>
         </div>
         <div class="section-note">前台仍使用 Firebase 即時更新。匯出檔案可作為備份。</div>
         <div id="exportMsg" class="msg"></div>
@@ -434,6 +436,7 @@
     const exportPublishedJsonBtn = document.getElementById('exportPublishedJsonBtn');
     const clearAllBtn = document.getElementById('clearAllBtn');
     const fixImagePathsBtn = document.getElementById('fixImagePathsBtn');
+    const removeBrokenImagesBtn = document.getElementById('removeBrokenImagesBtn');
     const exportMsg = document.getElementById('exportMsg');
 
     const searchInput = document.getElementById('searchInput');
@@ -494,6 +497,46 @@
       const v = String(value || '').trim().toLowerCase();
       return v === 'true' || v === '1' || v === 'yes' || v === 'y';
     }
+    function hasUsableManualOrder(item) {
+      const raw = item?.order;
+      if (raw === '' || raw === null || typeof raw === 'undefined') return false;
+      const num = Number(raw);
+      return Number.isFinite(num) && num > 0;
+    }
+    function getCreatedAtMs(value) {
+      if (!value) return 0;
+      if (typeof value?.toMillis === 'function') return value.toMillis();
+      if (typeof value?.seconds === 'number') return value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6);
+      const ms = new Date(value).getTime();
+      return Number.isFinite(ms) ? ms : 0;
+    }
+    function sortItemsForDisplay(rows = []) {
+      return rows.slice().sort((a, b) => {
+        const aHasOrder = hasUsableManualOrder(a);
+        const bHasOrder = hasUsableManualOrder(b);
+        if (aHasOrder && bHasOrder) {
+          const diff = Number(a.order) - Number(b.order);
+          if (diff !== 0) return diff;
+        } else if (aHasOrder !== bHasOrder) {
+          return aHasOrder ? -1 : 1;
+        }
+        const timeDiff = getCreatedAtMs(b.createdAt) - getCreatedAtMs(a.createdAt);
+        if (timeDiff !== 0) return timeDiff;
+        return String(a.text || a.imageFile || '').localeCompare(String(b.text || b.imageFile || ''), 'zh-Hant');
+      });
+    }
+    function normalizeOrderValue(value) {
+      const num = Number(value);
+      return Number.isFinite(num) && num > 0 ? num : 0;
+    }
+    function preloadImage(url) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+      });
+    }
     function payloadFromFields(obj) {
       const textValue = String(obj.text || '').trim();
       return {
@@ -505,7 +548,7 @@
         imageFile: String(obj.imageFile || '').trim(),
         audioUrl: buildUrl(AUDIO_BASE, obj.audioFile || ''),
         imageUrl: buildUrl(IMAGE_BASE, obj.imageFile || ''),
-        order: Number(obj.order || 0),
+        order: normalizeOrderValue(obj.order),
         published: normalizePublished(obj.published),
         updatedAt: serverTimestamp()
       };
@@ -531,7 +574,7 @@
       urlEl.value = item.url || '';
       audioFile.value = item.audioFile || '';
       imageFile.value = item.imageFile || '';
-      orderEl.value = Number(item.order || 0);
+      orderEl.value = hasUsableManualOrder(item) ? Number(item.order) : '';
       published.value = item.published === false ? 'false' : 'true';
       setMessage(saveMsg, '已載入資料，可直接修改後儲存。', 'ok');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -644,14 +687,53 @@
     }
 
 
+    async function removeBrokenImages() {
+      if (!confirm('確定要檢查並清除 Firebase 中已失效的圖片欄位嗎？清除後首頁將不再顯示那些破圖。')) return;
+      try {
+        setMessage(exportMsg, '正在檢查破圖，請稍候…', 'warn');
+        const snap = await getDocs(collection(db, 'phrases'));
+        let checked = 0;
+        let changed = 0;
+        let batch = writeBatch(db);
+        let ops = 0;
+        for (const d of snap.docs) {
+          const data = d.data() || {};
+          const imageUrl = String(data.imageUrl || buildUrl(IMAGE_BASE, data.imageFile || '') || '').trim();
+          const imageFileValue = String(data.imageFile || '').trim();
+          if (!imageFileValue || !imageUrl) continue;
+          checked++;
+          const ok = await preloadImage(imageUrl);
+          if (!ok) {
+            batch.update(doc(db, 'phrases', d.id), {
+              imageFile: '',
+              imageUrl: '',
+              updatedAt: serverTimestamp()
+            });
+            changed++;
+            ops++;
+            if (ops === 50) {
+              await batch.commit();
+              batch = writeBatch(db);
+              ops = 0;
+            }
+          }
+        }
+        if (ops > 0) await batch.commit();
+        setMessage(exportMsg, `破圖檢查完成：共檢查 ${checked} 筆圖片，已清除 ${changed} 筆失效圖片。`, changed ? 'ok' : 'warn');
+        await loadItems();
+      } catch (err) {
+        setMessage(exportMsg, '清除破圖失敗：' + err.message, 'err');
+      }
+    }
+
     async function loadItems() {
       const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
       const snap = await getDocs(q);
       const rows = [];
       snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-      allItems = rows;
+      allItems = sortItemsForDisplay(rows);
       renderItems();
-      searchStatus.textContent = `目前共 ${rows.length} 筆資料。`;
+      searchStatus.textContent = `目前共 ${rows.length} 筆資料；排序會先看手動排序，再看建立時間。`;
     }
 
     function renderItems(keyword = '') {
@@ -752,6 +834,7 @@
         const snap = await getDocs(q);
         let rows = [];
         snap.forEach(d => rows.push(sanitizeExportRecord(d.data())));
+        rows = sortItemsForDisplay(rows);
         if (onlyPublished) rows = rows.filter(r => r.published);
         if (!rows.length) {
           setMessage(exportMsg, '目前沒有可匯出的資料。', 'warn');
@@ -1020,6 +1103,7 @@
     });
 
     fixImagePathsBtn.addEventListener('click', fixImagePathsToFayu2);
+    removeBrokenImagesBtn.addEventListener('click', removeBrokenImages);
 
     runSearchBtn.addEventListener('click', () => {
       renderItems(searchInput.value);
