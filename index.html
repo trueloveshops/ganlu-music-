@@ -1084,6 +1084,28 @@ function writeQuoteRotationState(state) {
   }
 }
 
+function rememberCurrentQuotePosition() {
+  if (!QUOTES.length) return;
+  const item = QUOTES[currentQuoteIndex];
+  const signature = quoteSignature(item);
+  if (!signature) return;
+  const todayKey = getTodayKey();
+  const state = readQuoteRotationState();
+  const validSignatureSet = new Set(QUOTES.map(quoteSignature));
+  const seen = (state.date === todayKey ? state.seen : [])
+    .filter(sig => validSignatureSet.has(sig));
+
+  if (!seen.includes(signature)) {
+    seen.push(signature);
+  }
+
+  writeQuoteRotationState({
+    date: todayKey,
+    seen,
+    currentSignature: signature
+  });
+}
+
 function applyDailyQuoteRotation(forceRefresh = false) {
   if (!QUOTES.length) {
     currentQuoteIndex = 0;
@@ -1238,9 +1260,21 @@ function subscribeFirebaseSingleSource() {
     const orderedRows = prioritizeLatestQuote(rows);
 
     if (orderedRows.length) {
+      const previousSignature = QUOTES.length ? quoteSignature(QUOTES[currentQuoteIndex]) : '';
       QUOTES = orderedRows;
       saveQuoteCache(orderedRows);
-      applyDailyQuoteRotation();
+
+      const preservedIndex = previousSignature
+        ? QUOTES.findIndex(item => quoteSignature(item) === previousSignature)
+        : -1;
+
+      if (preservedIndex >= 0) {
+        currentQuoteIndex = preservedIndex;
+        rememberCurrentQuotePosition();
+      } else {
+        applyDailyQuoteRotation();
+      }
+
       renderQuote();
     } else if (!QUOTES.length) {
       console.warn('Firestore phrases 集合為空，且內建法語也為空。');
@@ -1344,6 +1378,8 @@ function renderQuote() {
     sourceLink.removeAttribute('title');
     sourceLink.classList.add('disabled');
   }
+
+  rememberCurrentQuotePosition();
 }
 
 function goPrevQuote() {
