@@ -203,7 +203,7 @@
       <div class="admin-header">
         <h1 class="admin-title">甘露法語後台管理</h1>
         <div class="header-actions">
-          <a href="index.html" class="btn gray" style="text-decoration:none;display:inline-flex;align-items:center;">退回首頁</a>
+          <a class="btn gray" href="index.html">退回首頁</a>
           <button id="refreshBtn" class="btn gray" type="button">重新整理資料</button>
           <button id="logoutBtn" class="btn danger" type="button">登出</button>
         </div>
@@ -278,7 +278,6 @@
         <div id="imageImportMsg" class="msg"></div>
         <div id="imageImportPreviewBox" class="preview-box hidden"></div>
       </div>
-
 
       <div class="card">
         <h2>批量匯入 CSV</h2>
@@ -391,7 +390,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, getDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, getDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyBoJ0byHJGwOHCkUmyZkx1jXLrctYYdzSM",
@@ -541,6 +540,7 @@
         updatedAt: serverTimestamp()
       };
     }
+
     function clearForm() {
       docId.value = '';
       textEl.value = '';
@@ -619,8 +619,17 @@
       const raw = String(value || '').trim();
       if (!raw) return '';
       const cleaned = raw.replace(/^"+|"+$/g, '').trim();
-      const parts = cleaned.split(/[/\\]/).filter(Boolean);
+      const parts = cleaned.split(/[\/]/).filter(Boolean);
       return parts.length ? parts[parts.length - 1].replace(/^"+|"+$/g, '').trim() : cleaned;
+    }
+
+    function normalizeSingleMediaPath(value, folder = '') {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      if (/^https?:\/\//i.test(raw)) return raw;
+      const filename = extractFilenameFromAnyPath(raw);
+      if (!filename) return '';
+      return folder ? `${folder}/${filename}` : filename;
     }
 
     function normalizeDigitsImagePath(value, folder = 'fayu2') {
@@ -634,23 +643,13 @@
       return `${folder}/${y}${m}${d}${ext.toLowerCase()}`;
     }
 
-    function normalizeSingleMediaPath(value, folder) {
-      const raw = String(value || '').trim();
-      if (!raw) return '';
-      if (/^https?:\/\//i.test(raw)) return raw;
-      const filename = extractFilenameFromAnyPath(raw);
-      if (!filename) return '';
-      return folder ? `${folder}/${filename}` : filename;
-    }
-
     function autoFormatImageField() {
       imageFile.value = normalizeDigitsImagePath(imageFile.value, 'fayu2');
     }
 
     function autoFormatAudioField() {
       const raw = String(audioFile.value || '').trim();
-      if (!raw) return;
-      if (/^https?:\/\//i.test(raw)) return;
+      if (!raw || /^https?:\/\//i.test(raw)) return;
       audioFile.value = extractFilenameFromAnyPath(raw);
     }
 
@@ -663,9 +662,13 @@
 
     function buildImageImportRows(rawText) {
       const lines = String(rawText || '')
-        .replace(/\r\n/g, '\n')
-        .replace(/\r/g, '\n')
-        .split('\n')
+        .replace(/
+/g, '
+')
+        .replace(//g, '
+')
+        .split('
+')
         .map(v => v.trim())
         .filter(Boolean);
 
@@ -685,6 +688,42 @@
           stableId: 'img_' + filename.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
         };
       }).filter(row => row.imageFile);
+    }
+
+    function getCreatedAtMs(value) {
+      if (!value) return 0;
+      if (typeof value?.toMillis === 'function') {
+        try { return value.toMillis(); } catch (e) { return 0; }
+      }
+      if (typeof value?.seconds === 'number') {
+        return value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6);
+      }
+      const parsed = Date.parse(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function hasMeaningfulOrderValue(value) {
+      const n = Number(value);
+      return Number.isFinite(n) && n > 0;
+    }
+
+    function sortItemsForDisplay(items = []) {
+      return [...items].sort((a, b) => {
+        const aHasOrder = hasMeaningfulOrderValue(a?.order);
+        const bHasOrder = hasMeaningfulOrderValue(b?.order);
+
+        if (aHasOrder && bHasOrder) {
+          const diff = Number(a.order) - Number(b.order);
+          if (diff !== 0) return diff;
+        } else if (aHasOrder !== bHasOrder) {
+          return aHasOrder ? -1 : 1;
+        }
+
+        const timeDiff = getCreatedAtMs(b?.createdAt || b?.updatedAt) - getCreatedAtMs(a?.createdAt || a?.updatedAt);
+        if (timeDiff !== 0) return timeDiff;
+
+        return String(a?.text || a?.imageFile || '').localeCompare(String(b?.text || b?.imageFile || ''), 'zh-Hant');
+      });
     }
 
     async function fixImagePathsToFayu2() {
@@ -729,11 +768,10 @@
 
 
     async function loadItems() {
-      const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
-      const snap = await getDocs(q);
+      const snap = await getDocs(collection(db, 'phrases'));
       const rows = [];
       snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-      allItems = rows;
+      allItems = sortItemsForDisplay(rows);
       renderItems();
       searchStatus.textContent = `目前共 ${rows.length} 筆資料。`;
     }
@@ -871,7 +909,7 @@
     }
 
     onAuthStateChanged(auth, async (user) => {
-      if (user) {
+      if (user && String(user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         showAdmin();
         try {
           await loadItems();
@@ -890,8 +928,13 @@
       loginBtn.disabled = true;
       setMessage(loginMsg, '登入中…', 'warn');
       try {
-        await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
-        setMessage(loginMsg, '登入成功。', 'ok');
+        const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
+        if ((cred.user.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+          await signOut(auth);
+          setMessage(loginMsg, '這不是管理員帳號。', 'err');
+        } else {
+          setMessage(loginMsg, '登入成功。', 'ok');
+        }
       } catch (err) {
         setMessage(loginMsg, '登入失敗：' + err.message, 'err');
       } finally {
@@ -1052,7 +1095,6 @@
         previewBtn.disabled = false;
       }
     });
-
 
     previewImageImportBtn.addEventListener('click', () => {
       parsedImageRows = [];

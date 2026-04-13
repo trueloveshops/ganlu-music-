@@ -1172,25 +1172,40 @@ function sortQuotesForRotation(items = []) {
   });
 }
 
-function prioritizeLatestQuote(items = []) {
+function interleaveQuoteTypes(items = []) {
   const sorted = sortQuotesForRotation(items);
-  if (sorted.length <= 1) return sorted;
+  if (sorted.length <= 2) return sorted;
 
-  let newestIndex = -1;
-  let newestMs = 0;
+  const imageItems = [];
+  const textItems = [];
 
-  sorted.forEach((item, index) => {
-    const ms = getCreatedAtMs(item.createdAt);
-    if (ms > newestMs) {
-      newestMs = ms;
-      newestIndex = index;
-    }
+  sorted.forEach(item => {
+    if (String(item?.imageFile || '').trim()) imageItems.push(item);
+    else textItems.push(item);
   });
 
-  if (newestIndex <= 0) return sorted;
+  if (!imageItems.length || !textItems.length) return sorted;
 
-  const [featured] = sorted.splice(newestIndex, 1);
-  return [featured, ...sorted];
+  const firstHasImage = Boolean(String(sorted[0]?.imageFile || '').trim());
+  const result = [];
+  let preferImage = firstHasImage;
+
+  while (imageItems.length || textItems.length) {
+    if (preferImage) {
+      if (imageItems.length) result.push(imageItems.shift());
+      else if (textItems.length) result.push(textItems.shift());
+    } else {
+      if (textItems.length) result.push(textItems.shift());
+      else if (imageItems.length) result.push(imageItems.shift());
+    }
+    preferImage = !preferImage;
+  }
+
+  return result;
+}
+
+function prioritizeLatestQuote(items = []) {
+  return interleaveQuoteTypes(items);
 }
 
 function subscribeFirebaseSingleSource() {
@@ -1283,17 +1298,6 @@ function dailyQuoteIndex() {
 }
 currentQuoteIndex = 0;
 
-function hasUsableManualOrder(item) {
-  const raw = item?._order ?? item?.order;
-  if (raw === '' || raw === null || typeof raw === 'undefined') return false;
-  const num = Number(raw);
-  return Number.isFinite(num) && num > 0;
-}
-
-function formatQuoteSource(item) {
-  return item && String(item.imageFile || '').trim() ? '' : String(item?.date || '').trim();
-}
-
 function renderQuote() {
   if (!QUOTES.length) {
     clearTimeout(renderQuote._timer);
@@ -1315,17 +1319,24 @@ function renderQuote() {
       const imgUrl = /^https?:\/\//i.test(imageFile)
         ? imageFile
         : `https://trueloveshops.github.io/ganlu-music-/images/${encodeURI(imageFile).replace(/%2F/g, '/')}`;
-      parts.push(`<img class="quote-image" src="${imgUrl}" alt="法語圖片" loading="eager" decoding="async" onerror="this.style.display='none';">`);
+      parts.push(`<img class="quote-image" src="${imgUrl}" alt="法語圖片" loading="eager" decoding="async">`);
     }
     if (item.content) {
-      parts.push(`<div>${escapeHtml(item.content).replace(/\n/g, '<br>')}</div>`);
+      parts.push(`<div>${escapeHtml(item.content).replace(/
+/g, '<br>')}</div>`);
     }
     quoteText.innerHTML = parts.join('') || '目前沒有法語資料';
+    const quoteImage = quoteText.querySelector('.quote-image');
+    if (quoteImage) {
+      quoteImage.onerror = () => {
+        quoteImage.remove();
+      };
+    }
     quoteText.scrollTop = 0;
     quoteText.style.opacity = '1';
   }, 80);
 
-  sourceLink.textContent = formatQuoteSource(item);
+  sourceLink.textContent = String(item.imageFile || '').trim() ? '' : (item.date || '');
   if (item.url && item.url.trim()) {
     sourceLink.href = item.url.trim();
     sourceLink.title = item.url.trim();
