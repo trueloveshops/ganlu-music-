@@ -132,7 +132,7 @@
     }
     .admin-title{font-size:32px;color:#274a70;font-weight:800;margin:0}
     .header-actions{display:flex;gap:10px;flex-wrap:wrap}
-    .btn{background:#e9eff6;color:#274a70;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+    .btn{background:#e9eff6;color:#274a70;font-weight:700}
     .btn.primary{background:var(--blue);color:#fff}
     .btn.primary:hover,.login-btn:hover{background:var(--blue-dark)}
     .btn.blue{background:#5d8fe5;color:#fff}
@@ -203,7 +203,7 @@
       <div class="admin-header">
         <h1 class="admin-title">甘露法語後台管理</h1>
         <div class="header-actions">
-          <a href="index.html" class="btn gray">退回首頁</a>
+          <a href="index.html" class="btn gray" style="text-decoration:none;display:inline-flex;align-items:center;">退回首頁</a>
           <button id="refreshBtn" class="btn gray" type="button">重新整理資料</button>
           <button id="logoutBtn" class="btn danger" type="button">登出</button>
         </div>
@@ -258,21 +258,6 @@
           <button id="resetBtn" class="btn gray" type="button">清空</button>
         </div>
         <div id="saveMsg" class="msg"></div>
-      </div>
-
-      <div class="card">
-        <h2>批量匯入圖片法語</h2>
-        <div class="section-note">先把圖片上傳到 GitHub 的 <code>images/fayu/</code>，再把電腦資料夾內圖片用 Shift + 右鍵複製路徑後整批貼到下方。</div>
-        <label for="imageBulkPaths">圖片路徑清單</label>
-        <textarea id="imageBulkPaths" placeholder="例如：
-C:\Users\user\Downloads\fayu\19881206.jpg
-C:\Users\user\Downloads\fayu\19970913.jpg"></textarea>
-        <div class="toolbar">
-          <button id="previewImageImportBtn" class="btn blue" type="button">預覽圖片匯入</button>
-          <button id="importImageImportBtn" class="btn primary" type="button" disabled>一鍵匯入圖片法語</button>
-        </div>
-        <div id="imageImportMsg" class="msg"></div>
-        <div id="imageImportPreview" class="preview-box hidden"></div>
       </div>
 
       <div class="card">
@@ -432,11 +417,6 @@ C:\Users\user\Downloads\fayu\19970913.jpg"></textarea>
     const clearBeforeImport = document.getElementById('clearBeforeImport');
     const importMsg = document.getElementById('importMsg');
     const previewBox = document.getElementById('previewBox');
-    const imageBulkPaths = document.getElementById('imageBulkPaths');
-    const previewImageImportBtn = document.getElementById('previewImageImportBtn');
-    const importImageImportBtn = document.getElementById('importImageImportBtn');
-    const imageImportMsg = document.getElementById('imageImportMsg');
-    const imageImportPreview = document.getElementById('imageImportPreview');
 
     const themeName = document.getElementById('themeName');
     const quoteFontFamily = document.getElementById('quoteFontFamily');
@@ -481,45 +461,6 @@ C:\Users\user\Downloads\fayu\19970913.jpg"></textarea>
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
     }
-    function extractFilename(input) {
-      const value = String(input || '').trim().replace(/^"|"$/g, '');
-      if (!value) return '';
-      const normalized = value.replace(/\+/g, '/');
-      return normalized.split('/').pop().trim();
-    }
-
-    function autoFilenameOnly(inputEl) {
-      if (!inputEl) return;
-      const filename = extractFilename(inputEl.value);
-      if (filename) inputEl.value = filename;
-    }
-
-    function formatDateFromFilename(filename) {
-      const base = String(filename || '').replace(/\.[^.]+$/, '');
-      const digits = (base.match(/(19|20)\d{6}/) || [''])[0];
-      if (!digits) return '';
-      return `${digits.slice(0,4)}.${digits.slice(4,6)}.${digits.slice(6,8)}`;
-    }
-
-    function buildImageImportRows(rawText) {
-      return String(rawText || '').split(/?
-/).map(line => line.trim()).filter(Boolean).map((line, idx) => {
-        const filename = extractFilename(line);
-        const date = formatDateFromFilename(filename);
-        return {
-          text: '',
-          date,
-          url: '',
-          audioFile: '',
-          imageFile: filename ? `fayu/${filename}` : '',
-          order: 0,
-          published: true,
-          filename,
-          idx: idx + 1
-        };
-      }).filter(row => row.filename);
-    }
-
     function showLogin() {
       loginView.classList.remove('hidden');
       adminView.classList.add('hidden');
@@ -663,6 +604,52 @@ C:\Users\user\Downloads\fayu\19970913.jpg"></textarea>
       const [, y, m, d, ext] = match;
       return `${folder}/${y}${m}${d}${ext.toLowerCase()}`;
     }
+    function formatDateFromFilename(filename) {
+      const raw = extractFilenameFromAnyPath(filename);
+      if (!raw) return '';
+      const match = raw.match(/(\d{4})[.\-_]?(\d{2})[.\-_]?(\d{2})/);
+      if (!match) return '';
+      return `${match[1]}.${match[2]}.${match[3]}`;
+    }
+
+    function buildImageImportRows(rawText) {
+      return String(rawText || '')
+        .split(/?
+/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map((line, idx) => {
+          const filename = extractFilenameFromAnyPath(line);
+          if (!filename || !/\.(png|jpe?g|webp|gif)$/i.test(filename)) return null;
+          return {
+            text: '',
+            date: formatDateFromFilename(filename),
+            url: '',
+            audioFile: '',
+            imageFile: normalizeDigitsImagePath(filename, 'fayu2'),
+            order: 0,
+            published: true,
+            filename,
+            idx: idx + 1
+          };
+        })
+        .filter(Boolean);
+    }
+
+    function normalizeSingleFileInput(el, folder = '') {
+      const value = String(el.value || '').trim();
+      if (!value) return;
+      const filename = extractFilenameFromAnyPath(value);
+      if (!filename) return;
+      el.value = folder ? normalizeDigitsImagePath(filename, folder) : filename;
+    }
+
+    [audioFile].forEach(el => {
+      ['change','blur','paste'].forEach(evt => el.addEventListener(evt, () => setTimeout(() => normalizeSingleFileInput(el, ''), 0)));
+    });
+    [imageFile].forEach(el => {
+      ['change','blur','paste'].forEach(evt => el.addEventListener(evt, () => setTimeout(() => normalizeSingleFileInput(el, 'fayu2'), 0)));
+    });
 
     async function fixImagePathsToFayu2() {
       if (!confirm('確定要把所有圖片路徑修正為 fayu2/純數字日期檔名？')) return;
@@ -903,20 +890,15 @@ C:\Users\user\Downloads\fayu\19970913.jpg"></textarea>
     });
     resetBtn.addEventListener('click', clearForm);
 
-    ['paste','blur','change'].forEach(evt => {
-      audioFile.addEventListener(evt, () => setTimeout(() => autoFilenameOnly(audioFile), 0));
-      imageFile.addEventListener(evt, () => setTimeout(() => autoFilenameOnly(imageFile), 0));
-    });
-
     saveBtn.addEventListener('click', async () => {
+      normalizeSingleFileInput(audioFile, '');
+      normalizeSingleFileInput(imageFile, 'fayu2');
       if (isSaving) return;
       const textValue = textEl.value.trim();
       if (!textValue) {
         setMessage(saveMsg, '請填寫法語內容。', 'err');
         return;
       }
-      autoFilenameOnly(audioFile);
-      autoFilenameOnly(imageFile);
       const payload = payloadFromFields({
         text: textValue,
         date: dateEl.value,
@@ -985,9 +967,22 @@ C:\Users\user\Downloads\fayu\19970913.jpg"></textarea>
           const chunk = parsedImageRows.slice(i, i + chunkSize);
           const batch = writeBatch(db);
           chunk.forEach(row => {
-            const payload = payloadFromFields(row);
+            const payload = {
+              title: row.date || row.filename,
+              text: '',
+              date: row.date || '',
+              url: '',
+              audioFile: '',
+              imageFile: row.imageFile,
+              audioUrl: '',
+              imageUrl: buildUrl(IMAGE_BASE, row.imageFile),
+              order: 0,
+              published: true,
+              updatedAt: serverTimestamp(),
+              createdAt: serverTimestamp()
+            };
             const stableId = `img_${String(row.filename).toLowerCase()}`;
-            batch.set(doc(db, 'phrases', stableId), { ...payload, createdAt: serverTimestamp() }, { merge: true });
+            batch.set(doc(db, 'phrases', stableId), payload, { merge: true });
           });
           await batch.commit();
         }
