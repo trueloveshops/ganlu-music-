@@ -1179,7 +1179,7 @@ function interleaveQuoteTypes(items = []) {
   const imageItems = [];
   const textItems = [];
 
-  sorted.forEach(item => {
+  sorted.forEach((item) => {
     if (String(item?.imageFile || '').trim()) imageItems.push(item);
     else textItems.push(item);
   });
@@ -1322,8 +1322,7 @@ function renderQuote() {
       parts.push(`<img class="quote-image" src="${imgUrl}" alt="法語圖片" loading="eager" decoding="async">`);
     }
     if (item.content) {
-      parts.push(`<div>${escapeHtml(item.content).replace(/
-/g, '<br>')}</div>`);
+      parts.push(`<div>${escapeHtml(item.content).replace(/\n/g, '<br>')}</div>`);
     }
     quoteText.innerHTML = parts.join('') || '目前沒有法語資料';
     const quoteImage = quoteText.querySelector('.quote-image');
