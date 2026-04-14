@@ -1084,28 +1084,6 @@ function writeQuoteRotationState(state) {
   }
 }
 
-function rememberCurrentQuotePosition() {
-  if (!QUOTES.length) return;
-  const item = QUOTES[currentQuoteIndex];
-  const signature = quoteSignature(item);
-  if (!signature) return;
-  const todayKey = getTodayKey();
-  const state = readQuoteRotationState();
-  const validSignatureSet = new Set(QUOTES.map(quoteSignature));
-  const seen = (state.date === todayKey ? state.seen : [])
-    .filter(sig => validSignatureSet.has(sig));
-
-  if (!seen.includes(signature)) {
-    seen.push(signature);
-  }
-
-  writeQuoteRotationState({
-    date: todayKey,
-    seen,
-    currentSignature: signature
-  });
-}
-
 function applyDailyQuoteRotation(forceRefresh = false) {
   if (!QUOTES.length) {
     currentQuoteIndex = 0;
@@ -1198,30 +1176,21 @@ function prioritizeLatestQuote(items = []) {
   const sorted = sortQuotesForRotation(items);
   if (sorted.length <= 1) return sorted;
 
-  const textItems = [];
-  const imageItems = [];
+  let newestIndex = -1;
+  let newestMs = 0;
 
-  sorted.forEach(item => {
-    if (String(item?.imageFile || '').trim()) imageItems.push(item);
-    else textItems.push(item);
+  sorted.forEach((item, index) => {
+    const ms = getCreatedAtMs(item.createdAt);
+    if (ms > newestMs) {
+      newestMs = ms;
+      newestIndex = index;
+    }
   });
 
-  if (!textItems.length || !imageItems.length) return sorted;
+  if (newestIndex <= 0) return sorted;
 
-  const mixed = [];
-  while (textItems.length || imageItems.length) {
-    for (let i = 0; i < 3 && textItems.length; i += 1) {
-      mixed.push(textItems.shift());
-    }
-    if (imageItems.length) {
-      mixed.push(imageItems.shift());
-    }
-    if (!textItems.length && imageItems.length) {
-      while (imageItems.length) mixed.push(imageItems.shift());
-    }
-  }
-
-  return mixed;
+  const [featured] = sorted.splice(newestIndex, 1);
+  return [featured, ...sorted];
 }
 
 function subscribeFirebaseSingleSource() {
@@ -1260,21 +1229,9 @@ function subscribeFirebaseSingleSource() {
     const orderedRows = prioritizeLatestQuote(rows);
 
     if (orderedRows.length) {
-      const previousSignature = QUOTES.length ? quoteSignature(QUOTES[currentQuoteIndex]) : '';
       QUOTES = orderedRows;
       saveQuoteCache(orderedRows);
-
-      const preservedIndex = previousSignature
-        ? QUOTES.findIndex(item => quoteSignature(item) === previousSignature)
-        : -1;
-
-      if (preservedIndex >= 0) {
-        currentQuoteIndex = preservedIndex;
-        rememberCurrentQuotePosition();
-      } else {
-        applyDailyQuoteRotation();
-      }
-
+      applyDailyQuoteRotation();
       renderQuote();
     } else if (!QUOTES.length) {
       console.warn('Firestore phrases 集合為空，且內建法語也為空。');
@@ -1378,8 +1335,6 @@ function renderQuote() {
     sourceLink.removeAttribute('title');
     sourceLink.classList.add('disabled');
   }
-
-  rememberCurrentQuotePosition();
 }
 
 function goPrevQuote() {
