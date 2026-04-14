@@ -1175,7 +1175,7 @@ function applyDailyQuoteRotation(forceRefresh = false) {
     unseen = [...QUOTES];
   }
 
-  const nextItem = prioritizeLatestQuote(unseen)[0] || QUOTES[0];
+  const nextItem = unseen[0] || QUOTES[0];
   const nextSignature = quoteSignature(nextItem);
   const nextIndex = signatures.indexOf(nextSignature);
 
