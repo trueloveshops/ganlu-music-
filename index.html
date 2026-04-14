@@ -1161,56 +1161,90 @@ function applyDailyQuoteRotation(forceRefresh = false) {
   let seen = (state.date === todayKey ? state.seen : [])
     .filter(sig => validSignatureSet.has(sig));
 
-  const currentSignature = validSignatureSet.has(state.currentSignature)
+  const currentSignature = (state.date === todayKey && validSignatureSet.has(state.currentSignature))
     ? state.currentSignature
     : '';
 
-  let unseen = QUOTES.filter(item => {
-    const sig = quoteSignature(item);
-    return sig && !seen.includes(sig);
-  });
+  const currentIndex = currentSignature ? signatures.indexOf(currentSignature) : -1;
 
-  // 今天如果還有未播過的新法語，優先播新的；
-  // 沒有新法語時，才維持今天目前這一句。
-  if (!forceRefresh && state.date === todayKey) {
-    if (unseen.length) {
-      const nextItem = unseen[0];
-      const nextSignature = quoteSignature(nextItem);
-      const nextIndex = signatures.indexOf(nextSignature);
+  if (!forceRefresh && currentIndex >= 0) {
+    // 只有當「目前這一句之前」出現了尚未播過的新法語時，才自動切到最新未播的那一句。
+    // 否則同一天內重整頁面要維持同一句。
+    const newerUnseenSignature = signatures
+      .slice(0, currentIndex)
+      .find(sig => sig && !seen.includes(sig));
 
-      if (nextSignature && !seen.includes(nextSignature)) {
-        seen.push(nextSignature);
+    if (newerUnseenSignature) {
+      if (!seen.includes(newerUnseenSignature)) {
+        seen.push(newerUnseenSignature);
       }
 
       writeQuoteRotationState({
         date: todayKey,
         seen,
-        currentSignature: nextSignature
+        currentSignature: newerUnseenSignature
       });
 
-      currentQuoteIndex = nextIndex >= 0 ? nextIndex : 0;
+      currentQuoteIndex = signatures.indexOf(newerUnseenSignature);
       return currentQuoteIndex;
     }
 
-    if (currentSignature) {
-      const currentIndex = signatures.indexOf(currentSignature);
-      if (currentIndex >= 0) {
-        currentQuoteIndex = currentIndex;
-        return currentQuoteIndex;
-      }
-    }
+    currentQuoteIndex = currentIndex;
+    return currentQuoteIndex;
   }
+
+  let unseen = signatures.filter(sig => sig && !seen.includes(sig));
 
   if (!unseen.length) {
     seen = [];
-    unseen = QUOTES.filter(item => quoteSignature(item));
+    unseen = signatures.filter(Boolean);
+  }
+
+  const nextSignature = unseen[0] || signatures[0] || '';
+  const nextIndex = signatures.indexOf(nextSignature);
+
+  if (nextSignature && !seen.includes(nextSignature)) {
+    seen.push(nextSignature);
+  }
+
+  writeQuoteRotationState({
+    date: todayKey,
+    seen,
+    currentSignature: nextSignature
+  });
+
+  currentQuoteIndex = nextIndex >= 0 ? nextIndex : 0;
+  return currentQuoteIndex;
+}
+
+  const todayKey = getTodayKey();
+  const signatures = QUOTES.map(quoteSignature);
+  const validSignatureSet = new Set(signatures);
+  const state = readQuoteRotationState();
+
+  let seen = state.seen.filter(sig => validSignatureSet.has(sig));
+  let currentSignature = validSignatureSet.has(state.currentSignature) ? state.currentSignature : '';
+
+  if (!forceRefresh && state.date === todayKey && currentSignature) {
+    const currentIndex = signatures.indexOf(currentSignature);
+    if (currentIndex >= 0) {
+      currentQuoteIndex = currentIndex;
+      return currentIndex;
+    }
+  }
+
+  let unseen = QUOTES.filter(item => !seen.includes(quoteSignature(item)));
+
+  if (!unseen.length) {
+    seen = [];
+    unseen = [...QUOTES];
   }
 
   const nextItem = unseen[0] || QUOTES[0];
   const nextSignature = quoteSignature(nextItem);
   const nextIndex = signatures.indexOf(nextSignature);
 
-  if (nextSignature && !seen.includes(nextSignature)) {
+  if (!seen.includes(nextSignature)) {
     seen.push(nextSignature);
   }
 
@@ -1331,12 +1365,10 @@ function subscribeFirebaseSingleSource() {
     const orderedRows = prioritizeLatestQuote(rows);
 
     if (orderedRows.length) {
-      const previousSignature = QUOTES.length ? quoteSignature(QUOTES[currentQuoteIndex]) : '';
       QUOTES = orderedRows;
       saveQuoteCache(orderedRows);
 
       applyDailyQuoteRotation();
-
       renderQuote();
     } else if (!QUOTES.length) {
       console.warn('Firestore phrases 集合為空，且內建法語也為空。');
