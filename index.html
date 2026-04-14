@@ -1168,8 +1168,9 @@ function applyDailyQuoteRotation(forceRefresh = false) {
   const currentIndex = currentSignature ? signatures.indexOf(currentSignature) : -1;
 
   if (!forceRefresh && currentIndex >= 0) {
-    // 只有當「目前這一句之前」出現了尚未播過的新法語時，才自動切到最新未播的那一句。
-    // 否則同一天內重整頁面要維持同一句。
+    // 方案 B：
+    // 同一天重新進入頁面時維持目前這一句；
+    // 只有當目前這一句前面出現了尚未播過的新法語時，才切到那句新法語一次。
     const newerUnseenSignature = signatures
       .slice(0, currentIndex)
       .find(sig => sig && !seen.includes(sig));
@@ -1204,47 +1205,6 @@ function applyDailyQuoteRotation(forceRefresh = false) {
   const nextIndex = signatures.indexOf(nextSignature);
 
   if (nextSignature && !seen.includes(nextSignature)) {
-    seen.push(nextSignature);
-  }
-
-  writeQuoteRotationState({
-    date: todayKey,
-    seen,
-    currentSignature: nextSignature
-  });
-
-  currentQuoteIndex = nextIndex >= 0 ? nextIndex : 0;
-  return currentQuoteIndex;
-}
-
-  const todayKey = getTodayKey();
-  const signatures = QUOTES.map(quoteSignature);
-  const validSignatureSet = new Set(signatures);
-  const state = readQuoteRotationState();
-
-  let seen = state.seen.filter(sig => validSignatureSet.has(sig));
-  let currentSignature = validSignatureSet.has(state.currentSignature) ? state.currentSignature : '';
-
-  if (!forceRefresh && state.date === todayKey && currentSignature) {
-    const currentIndex = signatures.indexOf(currentSignature);
-    if (currentIndex >= 0) {
-      currentQuoteIndex = currentIndex;
-      return currentIndex;
-    }
-  }
-
-  let unseen = QUOTES.filter(item => !seen.includes(quoteSignature(item)));
-
-  if (!unseen.length) {
-    seen = [];
-    unseen = [...QUOTES];
-  }
-
-  const nextItem = unseen[0] || QUOTES[0];
-  const nextSignature = quoteSignature(nextItem);
-  const nextIndex = signatures.indexOf(nextSignature);
-
-  if (!seen.includes(nextSignature)) {
     seen.push(nextSignature);
   }
 
@@ -1365,10 +1325,22 @@ function subscribeFirebaseSingleSource() {
     const orderedRows = prioritizeLatestQuote(rows);
 
     if (orderedRows.length) {
+      const previousSignature = QUOTES.length ? quoteSignature(QUOTES[currentQuoteIndex]) : '';
       QUOTES = orderedRows;
       saveQuoteCache(orderedRows);
 
-      applyDailyQuoteRotation();
+      const preservedIndex = previousSignature
+        ? QUOTES.findIndex(item => quoteSignature(item) === previousSignature)
+        : -1;
+
+      if (preservedIndex >= 0) {
+        currentQuoteIndex = preservedIndex;
+        rememberCurrentQuotePosition();
+        applyDailyQuoteRotation();
+      } else {
+        applyDailyQuoteRotation();
+      }
+
       renderQuote();
     } else if (!QUOTES.length) {
       console.warn('Firestore phrases 集合為空，且內建法語也為空。');
