@@ -1161,47 +1161,53 @@ function applyDailyQuoteRotation(forceRefresh = false) {
   let seen = (state.date === todayKey ? state.seen : [])
     .filter(sig => validSignatureSet.has(sig));
 
-  const currentSignature = (state.date === todayKey && validSignatureSet.has(state.currentSignature))
+  const currentSignature = validSignatureSet.has(state.currentSignature)
     ? state.currentSignature
     : '';
 
-  const currentIndex = currentSignature ? signatures.indexOf(currentSignature) : -1;
+  let unseen = QUOTES.filter(item => {
+    const sig = quoteSignature(item);
+    return sig && !seen.includes(sig);
+  });
 
-  if (!forceRefresh && currentIndex >= 0) {
-    // 方案 B：
-    // 同一天重新進入頁面時維持目前這一句；
-    // 只有當目前這一句前面出現了尚未播過的新法語時，才切到那句新法語一次。
-    const newerUnseenSignature = signatures
-      .slice(0, currentIndex)
-      .find(sig => sig && !seen.includes(sig));
+  // 今天如果還有未播過的新法語，優先播新的；
+  // 沒有新法語時，才維持今天目前這一句。
+  if (!forceRefresh && state.date === todayKey) {
+    if (unseen.length) {
+      const nextItem = unseen[0];
+      const nextSignature = quoteSignature(nextItem);
+      const nextIndex = signatures.indexOf(nextSignature);
 
-    if (newerUnseenSignature) {
-      if (!seen.includes(newerUnseenSignature)) {
-        seen.push(newerUnseenSignature);
+      if (nextSignature && !seen.includes(nextSignature)) {
+        seen.push(nextSignature);
       }
 
       writeQuoteRotationState({
         date: todayKey,
         seen,
-        currentSignature: newerUnseenSignature
+        currentSignature: nextSignature
       });
 
-      currentQuoteIndex = signatures.indexOf(newerUnseenSignature);
+      currentQuoteIndex = nextIndex >= 0 ? nextIndex : 0;
       return currentQuoteIndex;
     }
 
-    currentQuoteIndex = currentIndex;
-    return currentQuoteIndex;
+    if (currentSignature) {
+      const currentIndex = signatures.indexOf(currentSignature);
+      if (currentIndex >= 0) {
+        currentQuoteIndex = currentIndex;
+        return currentQuoteIndex;
+      }
+    }
   }
-
-  let unseen = signatures.filter(sig => sig && !seen.includes(sig));
 
   if (!unseen.length) {
     seen = [];
-    unseen = signatures.filter(Boolean);
+    unseen = QUOTES.filter(item => quoteSignature(item));
   }
 
-  const nextSignature = unseen[0] || signatures[0] || '';
+  const nextItem = unseen[0] || QUOTES[0];
+  const nextSignature = quoteSignature(nextItem);
   const nextIndex = signatures.indexOf(nextSignature);
 
   if (nextSignature && !seen.includes(nextSignature)) {
@@ -1329,17 +1335,7 @@ function subscribeFirebaseSingleSource() {
       QUOTES = orderedRows;
       saveQuoteCache(orderedRows);
 
-      const preservedIndex = previousSignature
-        ? QUOTES.findIndex(item => quoteSignature(item) === previousSignature)
-        : -1;
-
-      if (preservedIndex >= 0) {
-        currentQuoteIndex = preservedIndex;
-        rememberCurrentQuotePosition();
-        applyDailyQuoteRotation();
-      } else {
-        applyDailyQuoteRotation();
-      }
+      applyDailyQuoteRotation();
 
       renderQuote();
     } else if (!QUOTES.length) {
