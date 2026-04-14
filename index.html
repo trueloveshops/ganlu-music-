@@ -1090,11 +1090,12 @@ function getTodayKey() {
 }
 
 function quoteSignature(item = {}) {
-  return [
-    String(item.content || '').trim(),
-    String(item.date || '').trim(),
-    String(item.url || '').trim()
-  ].join('||');
+  const content = String(item.content || '').trim();
+  const imageFile = String(item.imageFile || '').trim();
+
+  if (content) return `text:${content}`;
+  if (imageFile) return `img:${imageFile}`;
+  return '';
 }
 
 function readQuoteRotationState() {
@@ -1151,6 +1152,54 @@ function applyDailyQuoteRotation(forceRefresh = false) {
     currentQuoteIndex = 0;
     return 0;
   }
+
+  const todayKey = getTodayKey();
+  const signatures = QUOTES.map(quoteSignature).filter(Boolean);
+  const validSignatureSet = new Set(signatures);
+  const state = readQuoteRotationState();
+
+  let seen = (state.date === todayKey ? state.seen : [])
+    .filter(sig => validSignatureSet.has(sig));
+
+  let currentSignature = validSignatureSet.has(state.currentSignature)
+    ? state.currentSignature
+    : '';
+
+  if (!forceRefresh && currentSignature) {
+    const currentIndex = signatures.indexOf(currentSignature);
+    if (currentIndex >= 0) {
+      currentQuoteIndex = currentIndex;
+      return currentIndex;
+    }
+  }
+
+  let unseen = QUOTES.filter(item => {
+    const sig = quoteSignature(item);
+    return sig && !seen.includes(sig);
+  });
+
+  if (!unseen.length) {
+    seen = [];
+    unseen = QUOTES.filter(item => quoteSignature(item));
+  }
+
+  const nextItem = unseen[0] || QUOTES[0];
+  const nextSignature = quoteSignature(nextItem);
+  const nextIndex = signatures.indexOf(nextSignature);
+
+  if (nextSignature && !seen.includes(nextSignature)) {
+    seen.push(nextSignature);
+  }
+
+  writeQuoteRotationState({
+    date: todayKey,
+    seen,
+    currentSignature: nextSignature
+  });
+
+  currentQuoteIndex = nextIndex >= 0 ? nextIndex : 0;
+  return currentQuoteIndex;
+}
 
   const todayKey = getTodayKey();
   const signatures = QUOTES.map(quoteSignature);
@@ -1304,19 +1353,16 @@ function subscribeFirebaseSingleSource() {
       QUOTES = orderedRows;
       saveQuoteCache(orderedRows);
 
-      const rotationState = readQuoteRotationState();
-const preferredSignature = previousSignature || rotationState.currentSignature || '';
+      const preservedIndex = previousSignature
+        ? QUOTES.findIndex(item => quoteSignature(item) === previousSignature)
+        : -1;
 
-const preservedIndex = preferredSignature
-  ? QUOTES.findIndex(item => quoteSignature(item) === preferredSignature)
-  : -1;
-
-if (preservedIndex >= 0) {
-  currentQuoteIndex = preservedIndex;
-  rememberCurrentQuotePosition();
-} else {
-  applyDailyQuoteRotation();
-}
+      if (preservedIndex >= 0) {
+        currentQuoteIndex = preservedIndex;
+        rememberCurrentQuotePosition();
+      } else {
+        applyDailyQuoteRotation();
+      }
 
       renderQuote();
     } else if (!QUOTES.length) {
