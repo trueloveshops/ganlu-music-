@@ -261,26 +261,6 @@
       </div>
 
       <div class="card">
-        <h2>一鍵匯入圖片法語</h2>
-        <div class="help">先把圖片上傳到 GitHub 的 <code>images/fayu2/</code>，再把本機圖片清單用 <code>Shift + 右鍵 → 複製路徑</code> 貼到下面。</div>
-        <div class="help">系統會自動：抓檔名、補成 <code>fayu2/檔名</code>、把 <code>19881206</code> 轉成 <code>1988.12.06</code>、並用同檔名覆蓋同一筆資料。</div>
-        <div class="field">
-          <label for="bulkImagePaths">圖片路徑清單</label>
-          <textarea id="bulkImagePaths" placeholder='例如：
-"C:\Users\user\Downloads\ganlu-music-\images\fayu2\19881206.jpg"
-"C:\Users\user\Downloads\ganlu-music-\images\fayu2\19970913.jpg"'></textarea>
-        </div>
-        <div class="toolbar">
-          <button id="previewImageImportBtn" class="btn blue" type="button">預覽圖片匯入</button>
-          <button id="importImageQuotesBtn" class="btn primary" type="button" disabled>一鍵匯入圖片法語</button>
-          <button id="clearImageImportBtn" class="btn gray" type="button">清空清單</button>
-        </div>
-        <div id="imageImportMsg" class="msg"></div>
-        <div id="imageImportPreviewBox" class="preview-box hidden"></div>
-      </div>
-
-
-      <div class="card">
         <h2>批量匯入 CSV</h2>
         <div class="help">CSV 欄位順序請用：<code>text,date,url,audioFile,imageFile,order,published</code></div>
         <div class="help">範例：<code>願眾生離苦得樂,DVD745,https://example.com,0001.mp3,0001.jpg,1,true</code></div>
@@ -438,13 +418,6 @@
     const importMsg = document.getElementById('importMsg');
     const previewBox = document.getElementById('previewBox');
 
-    const bulkImagePaths = document.getElementById('bulkImagePaths');
-    const previewImageImportBtn = document.getElementById('previewImageImportBtn');
-    const importImageQuotesBtn = document.getElementById('importImageQuotesBtn');
-    const clearImageImportBtn = document.getElementById('clearImageImportBtn');
-    const imageImportMsg = document.getElementById('imageImportMsg');
-    const imageImportPreviewBox = document.getElementById('imageImportPreviewBox');
-
     const themeName = document.getElementById('themeName');
     const quoteFontFamily = document.getElementById('quoteFontFamily');
     const titleFontFamily = document.getElementById('titleFontFamily');
@@ -473,7 +446,6 @@
     let isSaving = false;
     let isLoggingIn = false;
     let parsedRows = [];
-    let parsedImageRows = [];
     let allItems = [];
 
     function setMessage(el, text = '', type = '') {
@@ -525,17 +497,15 @@
     }
     function payloadFromFields(obj) {
       const textValue = String(obj.text || '').trim();
-      const normalizedAudioFile = normalizeSingleMediaPath(obj.audioFile || '', '');
-      const normalizedImageFile = normalizeDigitsImagePath(obj.imageFile || '', 'fayu2');
       return {
         title: getTitleFromText(textValue),
         text: textValue,
         date: String(obj.date || '').trim(),
         url: String(obj.url || '').trim(),
-        audioFile: normalizedAudioFile,
-        imageFile: normalizedImageFile,
-        audioUrl: buildUrl(AUDIO_BASE, normalizedAudioFile),
-        imageUrl: buildUrl(IMAGE_BASE, normalizedImageFile),
+        audioFile: String(obj.audioFile || '').trim(),
+        imageFile: String(obj.imageFile || '').trim(),
+        audioUrl: buildUrl(AUDIO_BASE, obj.audioFile || ''),
+        imageUrl: buildUrl(IMAGE_BASE, obj.imageFile || ''),
         order: Number(obj.order || 0),
         published: normalizePublished(obj.published),
         updatedAt: serverTimestamp()
@@ -632,59 +602,6 @@
       }
       const [, y, m, d, ext] = match;
       return `${folder}/${y}${m}${d}${ext.toLowerCase()}`;
-    }
-
-    function normalizeSingleMediaPath(value, folder) {
-      const raw = String(value || '').trim();
-      if (!raw) return '';
-      if (/^https?:\/\//i.test(raw)) return raw;
-      const filename = extractFilenameFromAnyPath(raw);
-      if (!filename) return '';
-      return folder ? `${folder}/${filename}` : filename;
-    }
-
-    function autoFormatImageField() {
-      imageFile.value = normalizeDigitsImagePath(imageFile.value, 'fayu2');
-    }
-
-    function autoFormatAudioField() {
-      const raw = String(audioFile.value || '').trim();
-      if (!raw) return;
-      if (/^https?:\/\//i.test(raw)) return;
-      audioFile.value = extractFilenameFromAnyPath(raw);
-    }
-
-    function deriveDateFromFilename(filename) {
-      const name = extractFilenameFromAnyPath(filename);
-      const match = name.match(/(\d{4})[.\-_]?(\d{2})[.\-_]?(\d{2})/);
-      if (!match) return '';
-      return `${match[1]}.${match[2]}.${match[3]}`;
-    }
-
-    function buildImageImportRows(rawText) {
-      const lines = String(rawText || '')
-        .replace(/\r\n/g, '\n')
-        .replace(/\r/g, '\n')
-        .split('\n')
-        .map(v => v.trim())
-        .filter(Boolean);
-
-      return lines.map((line, index) => {
-        const imagePath = normalizeDigitsImagePath(line, 'fayu2');
-        const filename = extractFilenameFromAnyPath(imagePath);
-        const date = deriveDateFromFilename(filename);
-        return {
-          index: index + 1,
-          text: '',
-          date,
-          url: '',
-          audioFile: '',
-          imageFile: imagePath,
-          order: 0,
-          published: true,
-          stableId: 'img_' + filename.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
-        };
-      }).filter(row => row.imageFile);
     }
 
     async function fixImagePathsToFayu2() {
@@ -871,7 +788,7 @@
     }
 
     onAuthStateChanged(auth, async (user) => {
-      if (user) {
+      if (user && String(user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
         showAdmin();
         try {
           await loadItems();
@@ -890,8 +807,13 @@
       loginBtn.disabled = true;
       setMessage(loginMsg, '登入中…', 'warn');
       try {
-        await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
-        setMessage(loginMsg, '登入成功。', 'ok');
+        const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
+        if ((cred.user.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+          await signOut(auth);
+          setMessage(loginMsg, '這不是管理員帳號。', 'err');
+        } else {
+          setMessage(loginMsg, '登入成功。', 'ok');
+        }
       } catch (err) {
         setMessage(loginMsg, '登入失敗：' + err.message, 'err');
       } finally {
@@ -921,14 +843,7 @@
     });
     resetBtn.addEventListener('click', clearForm);
 
-    ['change','blur','paste'].forEach(evt => {
-      imageFile.addEventListener(evt, () => setTimeout(autoFormatImageField, 0));
-      audioFile.addEventListener(evt, () => setTimeout(autoFormatAudioField, 0));
-    });
-
     saveBtn.addEventListener('click', async () => {
-      autoFormatAudioField();
-      autoFormatImageField();
       if (isSaving) return;
       const textValue = textEl.value.trim();
       if (!textValue) {
@@ -1051,95 +966,6 @@
         importBtn.disabled = false;
         previewBtn.disabled = false;
       }
-    });
-
-
-    previewImageImportBtn.addEventListener('click', () => {
-      parsedImageRows = [];
-      imageImportPreviewBox.innerHTML = '';
-      imageImportPreviewBox.classList.add('hidden');
-      importImageQuotesBtn.disabled = true;
-
-      const raw = bulkImagePaths.value;
-      if (!String(raw || '').trim()) {
-        setMessage(imageImportMsg, '請先貼上圖片路徑清單。', 'err');
-        return;
-      }
-
-      const rows = buildImageImportRows(raw);
-      if (!rows.length) {
-        setMessage(imageImportMsg, '沒有可匯入的圖片資料。', 'err');
-        return;
-      }
-
-      parsedImageRows = rows;
-      imageImportPreviewBox.classList.remove('hidden');
-      imageImportPreviewBox.innerHTML = rows.slice(0, 20).map(row => `
-        <div class="preview-row">
-          <strong>${row.index}. ${escapeHtml(row.imageFile)}</strong><br>
-          <span>日期：${escapeHtml(row.date || '—')}</span>
-        </div>
-      `).join('');
-      if (rows.length > 20) {
-        imageImportPreviewBox.innerHTML += `<div class="preview-row">只顯示前 20 筆，實際將匯入 ${rows.length} 筆。</div>`;
-      }
-      importImageQuotesBtn.disabled = false;
-      setMessage(imageImportMsg, `預覽完成，可匯入 ${rows.length} 筆圖片法語。`, 'ok');
-    });
-
-    importImageQuotesBtn.addEventListener('click', async () => {
-      if (!parsedImageRows.length) {
-        setMessage(imageImportMsg, '請先預覽圖片匯入。', 'err');
-        return;
-      }
-
-      importImageQuotesBtn.disabled = true;
-      previewImageImportBtn.disabled = true;
-      setMessage(imageImportMsg, '匯入中...', 'warn');
-
-      try {
-        const chunkSize = 200;
-        for (let i = 0; i < parsedImageRows.length; i += chunkSize) {
-          const chunk = parsedImageRows.slice(i, i + chunkSize);
-          const batch = writeBatch(db);
-          chunk.forEach(row => {
-            const payload = payloadFromFields({
-              text: '',
-              date: row.date,
-              url: '',
-              audioFile: '',
-              imageFile: row.imageFile,
-              order: 0,
-              published: true
-            });
-            batch.set(doc(db, 'phrases', row.stableId), { ...payload, createdAt: serverTimestamp() }, { merge: true });
-          });
-          await batch.commit();
-        }
-
-        const total = parsedImageRows.length;
-        parsedImageRows = [];
-        bulkImagePaths.value = '';
-        imageImportPreviewBox.innerHTML = '';
-        imageImportPreviewBox.classList.add('hidden');
-        previewImageImportBtn.disabled = false;
-        importImageQuotesBtn.disabled = true;
-        setMessage(imageImportMsg, `已完成匯入 ${total} 筆圖片法語。若有重複檔名，系統會直接覆蓋同一筆資料，不會重複新增。`, 'ok');
-        await loadItems();
-      } catch (err) {
-        previewImageImportBtn.disabled = false;
-        importImageQuotesBtn.disabled = false;
-        setMessage(imageImportMsg, '圖片法語匯入失敗：' + err.message, 'err');
-      }
-    });
-
-    clearImageImportBtn.addEventListener('click', () => {
-      parsedImageRows = [];
-      bulkImagePaths.value = '';
-      imageImportPreviewBox.innerHTML = '';
-      imageImportPreviewBox.classList.add('hidden');
-      importImageQuotesBtn.disabled = true;
-      setMessage(imageImportMsg, '');
     });
 
     downloadTemplateBtn.addEventListener('click', () => {
