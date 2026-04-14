@@ -1161,22 +1161,45 @@ function applyDailyQuoteRotation(forceRefresh = false) {
   let seen = (state.date === todayKey ? state.seen : [])
     .filter(sig => validSignatureSet.has(sig));
 
-  let currentSignature = validSignatureSet.has(state.currentSignature)
+  const currentSignature = validSignatureSet.has(state.currentSignature)
     ? state.currentSignature
     : '';
-
-  if (!forceRefresh && currentSignature) {
-    const currentIndex = signatures.indexOf(currentSignature);
-    if (currentIndex >= 0) {
-      currentQuoteIndex = currentIndex;
-      return currentIndex;
-    }
-  }
 
   let unseen = QUOTES.filter(item => {
     const sig = quoteSignature(item);
     return sig && !seen.includes(sig);
   });
+
+  // 今天如果還有未播過的新法語，優先播新的；
+  // 沒有新法語時，才維持今天目前這一句。
+  if (!forceRefresh && state.date === todayKey) {
+    if (unseen.length) {
+      const nextItem = unseen[0];
+      const nextSignature = quoteSignature(nextItem);
+      const nextIndex = signatures.indexOf(nextSignature);
+
+      if (nextSignature && !seen.includes(nextSignature)) {
+        seen.push(nextSignature);
+      }
+
+      writeQuoteRotationState({
+        date: todayKey,
+        seen,
+        currentSignature: nextSignature
+      });
+
+      currentQuoteIndex = nextIndex >= 0 ? nextIndex : 0;
+      return currentQuoteIndex;
+    }
+
+    if (currentSignature) {
+      const currentIndex = signatures.indexOf(currentSignature);
+      if (currentIndex >= 0) {
+        currentQuoteIndex = currentIndex;
+        return currentQuoteIndex;
+      }
+    }
+  }
 
   if (!unseen.length) {
     seen = [];
@@ -1188,47 +1211,6 @@ function applyDailyQuoteRotation(forceRefresh = false) {
   const nextIndex = signatures.indexOf(nextSignature);
 
   if (nextSignature && !seen.includes(nextSignature)) {
-    seen.push(nextSignature);
-  }
-
-  writeQuoteRotationState({
-    date: todayKey,
-    seen,
-    currentSignature: nextSignature
-  });
-
-  currentQuoteIndex = nextIndex >= 0 ? nextIndex : 0;
-  return currentQuoteIndex;
-}
-
-  const todayKey = getTodayKey();
-  const signatures = QUOTES.map(quoteSignature);
-  const validSignatureSet = new Set(signatures);
-  const state = readQuoteRotationState();
-
-  let seen = state.seen.filter(sig => validSignatureSet.has(sig));
-  let currentSignature = validSignatureSet.has(state.currentSignature) ? state.currentSignature : '';
-
-  if (!forceRefresh && state.date === todayKey && currentSignature) {
-    const currentIndex = signatures.indexOf(currentSignature);
-    if (currentIndex >= 0) {
-      currentQuoteIndex = currentIndex;
-      return currentIndex;
-    }
-  }
-
-  let unseen = QUOTES.filter(item => !seen.includes(quoteSignature(item)));
-
-  if (!unseen.length) {
-    seen = [];
-    unseen = [...QUOTES];
-  }
-
-  const nextItem = unseen[0] || QUOTES[0];
-  const nextSignature = quoteSignature(nextItem);
-  const nextIndex = signatures.indexOf(nextSignature);
-
-  if (!seen.includes(nextSignature)) {
     seen.push(nextSignature);
   }
 
@@ -1353,16 +1335,7 @@ function subscribeFirebaseSingleSource() {
       QUOTES = orderedRows;
       saveQuoteCache(orderedRows);
 
-      const preservedIndex = previousSignature
-        ? QUOTES.findIndex(item => quoteSignature(item) === previousSignature)
-        : -1;
-
-      if (preservedIndex >= 0) {
-        currentQuoteIndex = preservedIndex;
-        rememberCurrentQuotePosition();
-      } else {
-        applyDailyQuoteRotation();
-      }
+      applyDailyQuoteRotation();
 
       renderQuote();
     } else if (!QUOTES.length) {
