@@ -842,12 +842,52 @@ function getTaipeiNow() {
 
 function getTaipeiDateId() {
   const now = getTaipeiNow();
+
+  const cutoffHour = 6; // 設定每天 06:00 切換
+
+  // 如果現在還沒到 06:00 → 算前一天
+  if (now.getHours() < cutoffHour) {
+    now.setDate(now.getDate() - 1);
+  }
+
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const d = String(now.getDate()).padStart(2, '0');
+
   return `${y}-${m}-${d}`;
 }
+function getMsUntilNextTaipei6am() {
+  const now = getTaipeiNow();
+  const next = new Date(now);
 
+  next.setHours(6, 0, 0, 0);
+
+  if (now.getHours() >= 6) {
+    next.setDate(next.getDate() + 1);
+  }
+
+  return Math.max(1000, next.getTime() - now.getTime());
+}
+
+function scheduleDailyQuoteRefresh() {
+  const delay = getMsUntilNextTaipei6am();
+
+  setTimeout(() => {
+    try {
+      if (typeof applyDailyQuoteRotation === 'function') {
+        applyDailyQuoteRotation();
+      }
+
+      if (typeof renderQuote === 'function') {
+        renderQuote();
+      }
+    } catch (e) {
+      console.warn('06:00 自動切換失敗：', e);
+    }
+
+    scheduleDailyQuoteRefresh();
+  }, delay);
+}
 async function recordVisitIfNeeded(db) {
   if (!db) return;
   try {
@@ -1320,6 +1360,7 @@ setInterval(updateDateTime, 1000);
 applyAppearanceSettings(readAppearanceCache());
 renderImmediateFallback();
 subscribeFirebaseSingleSource();
+scheduleDailyQuoteRefresh();
 
 function dailyQuoteIndex() {
   return applyDailyQuoteRotation();
