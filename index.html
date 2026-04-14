@@ -1304,16 +1304,19 @@ function subscribeFirebaseSingleSource() {
       QUOTES = orderedRows;
       saveQuoteCache(orderedRows);
 
-      const preservedIndex = previousSignature
-        ? QUOTES.findIndex(item => quoteSignature(item) === previousSignature)
-        : -1;
+      const rotationState = readQuoteRotationState();
+const preferredSignature = previousSignature || rotationState.currentSignature || '';
 
-      if (preservedIndex >= 0) {
-        currentQuoteIndex = preservedIndex;
-        rememberCurrentQuotePosition();
-      } else {
-        applyDailyQuoteRotation();
-      }
+const preservedIndex = preferredSignature
+  ? QUOTES.findIndex(item => quoteSignature(item) === preferredSignature)
+  : -1;
+
+if (preservedIndex >= 0) {
+  currentQuoteIndex = preservedIndex;
+  rememberCurrentQuotePosition();
+} else {
+  applyDailyQuoteRotation();
+}
 
       renderQuote();
     } else if (!QUOTES.length) {
