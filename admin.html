@@ -254,6 +254,11 @@
         </div>
 
         <div class="toolbar">
+  <button id="saveBtn" class="btn primary" type="button">儲存</button>
+  <button id="resetBtn" class="btn gray" type="button">清空</button>
+  <button id="clearTextOnlyBtn" class="btn gray" type="button">只清空文字法語</button>  <!-- New Button -->
+</div>
+
           <button id="saveBtn" class="btn primary" type="button">儲存</button>
           <button id="resetBtn" class="btn gray" type="button">清空</button>
         </div>
@@ -271,6 +276,11 @@
 "C:\Users\user\Downloads\ganlu-music-\images\fayu2\19970913.jpg"'></textarea>
         </div>
         <div class="toolbar">
+  <button id="saveBtn" class="btn primary" type="button">儲存</button>
+  <button id="resetBtn" class="btn gray" type="button">清空</button>
+  <button id="clearTextOnlyBtn" class="btn gray" type="button">只清空文字法語</button>  <!-- New Button -->
+</div>
+
           <button id="previewImageImportBtn" class="btn blue" type="button">預覽圖片匯入</button>
           <button id="importImageQuotesBtn" class="btn primary" type="button" disabled>一鍵匯入圖片法語</button>
           <button id="clearImageImportBtn" class="btn gray" type="button">清空清單</button>
@@ -286,6 +296,11 @@
         <div class="help">範例：<code>願眾生離苦得樂,DVD745,https://example.com,0001.mp3,0001.jpg,1,true</code></div>
         <div class="field"><input id="csvFile" type="file" accept=".csv,text/csv"></div>
         <div class="toolbar">
+  <button id="saveBtn" class="btn primary" type="button">儲存</button>
+  <button id="resetBtn" class="btn gray" type="button">清空</button>
+  <button id="clearTextOnlyBtn" class="btn gray" type="button">只清空文字法語</button>  <!-- New Button -->
+</div>
+
           <button id="previewBtn" class="btn blue" type="button">預覽 CSV</button>
           <button id="importBtn" class="btn primary" type="button" disabled>開始匯入</button>
           <button id="downloadTemplateBtn" class="btn gray" type="button">下載模板</button>
@@ -356,6 +371,11 @@
           </div>
         </div>
         <div class="toolbar">
+  <button id="saveBtn" class="btn primary" type="button">儲存</button>
+  <button id="resetBtn" class="btn gray" type="button">清空</button>
+  <button id="clearTextOnlyBtn" class="btn gray" type="button">只清空文字法語</button>  <!-- New Button -->
+</div>
+
           <button id="saveThemeBtn" class="btn purple" type="button">儲存外觀設定</button>
           <button id="loadThemeBtn" class="btn gray" type="button">重新讀取設定</button>
         </div>
@@ -365,6 +385,11 @@
       <div class="card">
         <h2>資料匯出</h2>
         <div class="toolbar">
+  <button id="saveBtn" class="btn primary" type="button">儲存</button>
+  <button id="resetBtn" class="btn gray" type="button">清空</button>
+  <button id="clearTextOnlyBtn" class="btn gray" type="button">只清空文字法語</button>  <!-- New Button -->
+</div>
+
           <button id="exportJsonBtn" class="btn primary" type="button">匯出 JSON</button>
           <button id="exportCsvBtn" class="btn blue" type="button">匯出 CSV</button>
           <button id="exportPublishedJsonBtn" class="btn gray" type="button">匯出已發布 JSON</button>
@@ -1211,6 +1236,14 @@
         runSearchBtn.click();
       }
     });
-  </script>
+    
+  // Add event listener for the "只清空文字法語" button
+  document.getElementById('clearTextOnlyBtn').addEventListener('click', () => {
+    textEl.value = '';  // Clears only the text input
+    setMessage(saveMsg, '已清空文字法語內容，圖檔資料仍保留。', 'ok');
+  });
+
+</script>
+
 </body>
 </html>
