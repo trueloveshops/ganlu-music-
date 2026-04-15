@@ -235,7 +235,7 @@
           <div>
             <label for="imageFile">圖片檔名（可空）</label>
             <input id="imageFile" type="text" placeholder="例如：0001.jpg">
-            <div class="help">可填檔名、資料夾/檔名，或完整網址。例如：<code>fayu3/19970913.jpg</code>。</div>
+            <div class="help">可填檔名、資料夾/檔名，或完整網址。例如：<code>aphorism/001.jpg</code>。</div>
           </div>
         </div>
 
@@ -262,13 +262,13 @@
 
       <div class="card">
         <h2>一鍵匯入圖片法語</h2>
-        <div class="help">先把圖片上傳到 GitHub 的 <code>images/你的資料夾/</code>（例如 <code>fayu2/</code>、<code>fayu3/</code>），再把本機圖片清單用 <code>Shift + 右鍵 → 複製路徑</code> 貼到下面。</div>
-        <div class="help">系統會自動：保留你原本的資料夾名稱、抓檔名、把像 <code>1988.12.06.jpg</code> 這類日期檔名轉成 <code>19881206.jpg</code>、並用同路徑同檔名覆蓋同一筆資料。</div>
+        <div class="help">先把圖片上傳到 GitHub 的 <code>images/你的資料夾/</code>（例如 <code>fayu2/</code>、<code>fayu3/</code>、<code>aphorism/</code>），再把本機圖片清單用 <code>Shift + 右鍵 → 複製路徑</code> 貼到下面。</div>
+        <div class="help">系統會自動：保留你原本的資料夾名稱、抓檔名、把像 <code>1988.12.06.jpg</code> 這類日期檔名整理成 <code>19881206.jpg</code>、並用同路徑同檔名覆蓋同一筆資料。</div>
         <div class="field">
           <label for="bulkImagePaths">圖片路徑清單</label>
           <textarea id="bulkImagePaths" placeholder='例如：
 "C:\Users\user\Downloads\ganlu-music-\images\fayu2\19881206.jpg"
-"C:\Users\user\Downloads\ganlu-music-\images\fayu3\19970913.jpg"'></textarea>
+"C:\Users\user\Downloads\ganlu-music-\images\fayu2\19970913.jpg"'></textarea>
         </div>
         <div class="toolbar">
           <button id="previewImageImportBtn" class="btn blue" type="button">預覽圖片匯入</button>
@@ -368,6 +368,7 @@
           <button id="exportJsonBtn" class="btn primary" type="button">匯出 JSON</button>
           <button id="exportCsvBtn" class="btn blue" type="button">匯出 CSV</button>
           <button id="exportPublishedJsonBtn" class="btn gray" type="button">匯出已發布 JSON</button>
+          <button id="clearTextOnlyBtn" class="btn gray" type="button">只清空文字法語</button>
           <button id="clearAllBtn" class="btn danger" type="button">清空全部資料</button>
           <button id="fixImagePathsBtn" class="btn danger" type="button">一鍵修正圖片路徑</button>
         </div>
@@ -460,6 +461,7 @@
     const exportJsonBtn = document.getElementById('exportJsonBtn');
     const exportCsvBtn = document.getElementById('exportCsvBtn');
     const exportPublishedJsonBtn = document.getElementById('exportPublishedJsonBtn');
+    const clearTextOnlyBtn = document.getElementById('clearTextOnlyBtn');
     const clearAllBtn = document.getElementById('clearAllBtn');
     const fixImagePathsBtn = document.getElementById('fixImagePathsBtn');
     const exportMsg = document.getElementById('exportMsg');
@@ -1194,6 +1196,47 @@
     exportJsonBtn.addEventListener('click', () => exportData('json'));
     exportCsvBtn.addEventListener('click', () => exportData('csv'));
     exportPublishedJsonBtn.addEventListener('click', () => exportData('json', true));
+
+    clearTextOnlyBtn.addEventListener('click', async () => {
+      if (!confirm('確定要清空所有文字法語相關資料？\n\n會清空：法語內容、標題、日期/來源、超連結網址\n會保留：圖片、音檔、排序、發布狀態')) return;
+      try {
+        const snap = await getDocs(collection(db, 'phrases'));
+        if (snap.empty) {
+          setMessage(exportMsg, '目前沒有可清空的資料。', 'warn');
+          return;
+        }
+
+        let count = 0;
+        let batch = writeBatch(db);
+        let n = 0;
+
+        for (const d of snap.docs) {
+          batch.update(doc(db, 'phrases', d.id), {
+            title: '',
+            text: '',
+            date: '',
+            url: '',
+            updatedAt: serverTimestamp()
+          });
+          count++;
+          n++;
+
+          if (n === 200) {
+            await batch.commit();
+            batch = writeBatch(db);
+            n = 0;
+          }
+        }
+
+        if (n > 0) await batch.commit();
+
+        setMessage(exportMsg, `已清空 ${count} 筆文字法語相關資料。`, 'ok');
+        await loadItems();
+        clearForm();
+      } catch (err) {
+        setMessage(exportMsg, '清空文字法語失敗：' + err.message, 'err');
+      }
+    });
 
     clearAllBtn.addEventListener('click', async () => {
       if (!confirm('確定要清空全部法語資料？此動作無法復原。')) return;
