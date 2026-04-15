@@ -1198,7 +1198,7 @@
     exportPublishedJsonBtn.addEventListener('click', () => exportData('json', true));
 
     clearTextOnlyBtn.addEventListener('click', async () => {
-      if (!confirm('確定要清空所有文字法語相關資料？\n\n會清空：法語內容、標題、日期/來源、超連結網址\n會保留：圖片、音檔、排序、發布狀態')) return;
+      if (!confirm('確定要清空所有文字法語相關資料？\n\n有圖片的資料會保留圖片/音檔/排序/發布狀態，只清空文字、日期、連結。\n沒有圖片的資料會直接刪除。')) return;
       try {
         const snap = await getDocs(collection(db, 'phrases'));
         if (snap.empty) {
@@ -1206,19 +1206,29 @@
           return;
         }
 
-        let count = 0;
+        let keptCount = 0;
+        let deletedCount = 0;
         let batch = writeBatch(db);
         let n = 0;
 
         for (const d of snap.docs) {
-          batch.update(doc(db, 'phrases', d.id), {
-            title: '',
-            text: '',
-            date: '',
-            url: '',
-            updatedAt: serverTimestamp()
-          });
-          count++;
+          const data = d.data() || {};
+          const hasImage = String(data.imageFile || '').trim() || String(data.imageUrl || '').trim();
+
+          if (hasImage) {
+            batch.update(doc(db, 'phrases', d.id), {
+              title: '',
+              text: '',
+              date: '',
+              url: '',
+              updatedAt: serverTimestamp()
+            });
+            keptCount++;
+          } else {
+            batch.delete(doc(db, 'phrases', d.id));
+            deletedCount++;
+          }
+
           n++;
 
           if (n === 200) {
@@ -1230,7 +1240,7 @@
 
         if (n > 0) await batch.commit();
 
-        setMessage(exportMsg, `已清空 ${count} 筆文字法語相關資料。`, 'ok');
+        setMessage(exportMsg, `已保留 ${keptCount} 筆圖片資料，刪除 ${deletedCount} 筆非圖片文字資料。`, 'ok');
         await loadItems();
         clearForm();
       } catch (err) {
