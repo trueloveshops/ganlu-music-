@@ -230,12 +230,12 @@
           <div>
             <label for="audioFile">音檔檔名（可空）</label>
             <input id="audioFile" type="text" placeholder="例如：0001.mp3">
-            <div class="help">只填檔名即可。若已是完整網址，也可直接貼上。</div>
+            <div class="help">可填檔名、資料夾/檔名，或完整網址。例如：<code>fayu3/19970913.jpg</code>。</div>
           </div>
           <div>
             <label for="imageFile">圖片檔名（可空）</label>
             <input id="imageFile" type="text" placeholder="例如：0001.jpg">
-            <div class="help">只填檔名即可。若已是完整網址，也可直接貼上。</div>
+            <div class="help">可填檔名、資料夾/檔名，或完整網址。例如：<code>fayu3/19970913.jpg</code>。</div>
           </div>
         </div>
 
@@ -262,13 +262,13 @@
 
       <div class="card">
         <h2>一鍵匯入圖片法語</h2>
-        <div class="help">先把圖片上傳到 GitHub 的 <code>images/fayu2/</code>，再把本機圖片清單用 <code>Shift + 右鍵 → 複製路徑</code> 貼到下面。</div>
-        <div class="help">系統會自動：抓檔名、補成 <code>fayu2/檔名</code>、把 <code>19881206</code> 轉成 <code>1988.12.06</code>、並用同檔名覆蓋同一筆資料。</div>
+        <div class="help">先把圖片上傳到 GitHub 的 <code>images/你的資料夾/</code>（例如 <code>fayu2/</code>、<code>fayu3/</code>），再把本機圖片清單用 <code>Shift + 右鍵 → 複製路徑</code> 貼到下面。</div>
+        <div class="help">系統會自動：保留你原本的資料夾名稱、抓檔名、把像 <code>1988.12.06.jpg</code> 這類日期檔名轉成 <code>19881206.jpg</code>、並用同路徑同檔名覆蓋同一筆資料。</div>
         <div class="field">
           <label for="bulkImagePaths">圖片路徑清單</label>
           <textarea id="bulkImagePaths" placeholder='例如：
 "C:\Users\user\Downloads\ganlu-music-\images\fayu2\19881206.jpg"
-"C:\Users\user\Downloads\ganlu-music-\images\fayu2\19970913.jpg"'></textarea>
+"C:\Users\user\Downloads\ganlu-music-\images\fayu3\19970913.jpg"'></textarea>
         </div>
         <div class="toolbar">
           <button id="previewImageImportBtn" class="btn blue" type="button">預覽圖片匯入</button>
@@ -369,7 +369,6 @@
           <button id="exportCsvBtn" class="btn blue" type="button">匯出 CSV</button>
           <button id="exportPublishedJsonBtn" class="btn gray" type="button">匯出已發布 JSON</button>
           <button id="clearAllBtn" class="btn danger" type="button">清空全部資料</button>
-          <button id="clearTextOnlyBtn" class="btn gray" type="button">只清空文字法語</button>
           <button id="fixImagePathsBtn" class="btn danger" type="button">一鍵修正圖片路徑</button>
         </div>
         <div class="section-note">前台仍使用 Firebase 即時更新。匯出檔案可作為備份。</div>
@@ -462,7 +461,6 @@
     const exportCsvBtn = document.getElementById('exportCsvBtn');
     const exportPublishedJsonBtn = document.getElementById('exportPublishedJsonBtn');
     const clearAllBtn = document.getElementById('clearAllBtn');
-    const clearTextOnlyBtn = document.getElementById('clearTextOnlyBtn');
     const fixImagePathsBtn = document.getElementById('fixImagePathsBtn');
     const exportMsg = document.getElementById('exportMsg');
 
@@ -625,15 +623,25 @@
       return parts.length ? parts[parts.length - 1].replace(/^"+|"+$/g, '').trim() : cleaned;
     }
 
-    function normalizeDigitsImagePath(value, folder = 'fayu2') {
-      const filename = extractFilenameFromAnyPath(value);
+    function normalizeDigitsImagePath(value, defaultFolder = 'fayu2') {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      if (/^https?:\/\//i.test(raw)) return raw;
+
+      const cleaned = raw.replace(/^"+|"+$/g, '').trim().replace(/\\/g, '/');
+      const filename = extractFilenameFromAnyPath(cleaned);
       if (!filename) return '';
+
+      const parts = cleaned.split('/').filter(Boolean);
+      const folderPath = parts.length > 1 ? parts.slice(0, -1).join('/') : defaultFolder;
+
       const match = filename.match(/(\d{4})[.\-_]?(\d{2})[.\-_]?(\d{2})(\.[A-Za-z0-9]+)$/);
       if (!match) {
-        return `${folder}/${filename}`;
+        return `${folderPath}/${filename}`;
       }
+
       const [, y, m, d, ext] = match;
-      return `${folder}/${y}${m}${d}${ext.toLowerCase()}`;
+      return `${folderPath}/${y}${m}${d}${ext.toLowerCase()}`;
     }
 
     function normalizeSingleMediaPath(value, folder) {
@@ -672,7 +680,10 @@
         .filter(Boolean);
 
       return lines.map((line, index) => {
-        const imagePath = normalizeDigitsImagePath(line, 'fayu2');
+        const normalizedLine = String(line || '').replace(/^"+|"+$/g, '').trim().replace(/\\/g, '/');
+        const imageSplit = normalizedLine.split('/images/');
+        const relativePath = imageSplit.length > 1 ? imageSplit[1] : extractFilenameFromAnyPath(normalizedLine);
+        const imagePath = normalizeDigitsImagePath(relativePath, 'fayu2');
         const filename = extractFilenameFromAnyPath(imagePath);
         const date = deriveDateFromFilename(filename);
         return {
@@ -684,7 +695,7 @@
           imageFile: imagePath,
           order: 0,
           published: true,
-          stableId: 'img_' + filename.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+          stableId: 'img_' + imagePath.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
         };
       }).filter(row => row.imageFile);
     }
@@ -1183,48 +1194,6 @@
     exportJsonBtn.addEventListener('click', () => exportData('json'));
     exportCsvBtn.addEventListener('click', () => exportData('csv'));
     exportPublishedJsonBtn.addEventListener('click', () => exportData('json', true));
-
-    clearTextOnlyBtn.addEventListener('click', async () => {
-      if (!confirm('確定要只清空所有法語文字？圖片、音檔與其他資料都會保留。')) return;
-      try {
-        const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
-        const snap = await getDocs(q);
-        if (snap.empty) {
-          setMessage(exportMsg, '目前沒有可清空的資料。', 'warn');
-          return;
-        }
-
-        let count = 0;
-        let batch = writeBatch(db);
-        let n = 0;
-
-        for (const d of snap.docs) {
-          batch.update(doc(db, 'phrases', d.id), {
-            text: '',
-            title: '',
-            updatedAt: serverTimestamp()
-          });
-          count++;
-          n++;
-
-          if (n === 200) {
-            await batch.commit();
-            batch = writeBatch(db);
-            n = 0;
-          }
-        }
-
-        if (n > 0) await batch.commit();
-
-        setMessage(exportMsg, `已清空 ${count} 筆法語文字，圖片與音檔資料皆已保留。`, 'ok');
-        await loadItems();
-        if (!docId.value) {
-          textEl.value = '';
-        }
-      } catch (err) {
-        setMessage(exportMsg, '只清空文字法語失敗：' + err.message, 'err');
-      }
-    });
 
     clearAllBtn.addEventListener('click', async () => {
       if (!confirm('確定要清空全部法語資料？此動作無法復原。')) return;
