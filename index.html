@@ -831,6 +831,8 @@ let firebaseHasConnected = false;
 
 const VISIT_STATS_COLLECTION = 'site_visits_daily';
 const VISIT_STORAGE_KEY = 'ganlu_visit_counted_date_v1';
+const VISIT_DEVICE_KEY = 'ganlu_visit_device_id_v2';
+const VISIT_DEVICE_COLLECTION = 'devices';
 
 function getTaipeiNow() {
   try {
@@ -848,21 +850,89 @@ function getTaipeiDateId() {
   return `${y}-${m}-${d}`;
 }
 
+function getVisitDeviceSeed() {
+  try {
+    const nav = window.navigator || {};
+    const screenObj = window.screen || {};
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    const parts = [
+      nav.platform || '',
+      nav.language || '',
+      String(nav.maxTouchPoints || 0),
+      String(nav.hardwareConcurrency || 0),
+      String(nav.deviceMemory || 0),
+      `${screenObj.width || 0}x${screenObj.height || 0}`,
+      String(screenObj.colorDepth || 0),
+      tz
+    ];
+    return parts.join('|');
+  } catch (e) {
+    return 'fallback-device-seed';
+  }
+}
+
+function hashStringFNV1a(input) {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function getVisitDeviceId() {
+  try {
+    let cached = localStorage.getItem(VISIT_DEVICE_KEY);
+    if (cached) return cached;
+
+    const seed = getVisitDeviceSeed();
+    cached = `dv2_${hashStringFNV1a(seed)}`;
+    localStorage.setItem(VISIT_DEVICE_KEY, cached);
+    return cached;
+  } catch (e) {
+    return `dv2_${hashStringFNV1a(getVisitDeviceSeed())}`;
+  }
+}
+
 async function recordVisitIfNeeded(db) {
   if (!db) return;
   try {
     const todayId = getTaipeiDateId();
     const lastCountedDate = localStorage.getItem(VISIT_STORAGE_KEY);
-    if (lastCountedDate === todayId) return;
+    const deviceId = getVisitDeviceId();
+    const dayRef = db.collection(VISIT_STATS_COLLECTION).doc(todayId);
+    const deviceRef = dayRef.collection(VISIT_DEVICE_COLLECTION).doc(deviceId);
 
-    const ref = db.collection(VISIT_STATS_COLLECTION).doc(todayId);
+    if (lastCountedDate === todayId) {
+      try {
+        const deviceSnap = await deviceRef.get();
+        if (deviceSnap.exists) return;
+      } catch (e) {
+        return;
+      }
+    }
+
     await db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      const prev = snap.exists ? Number(snap.data().count || 0) : 0;
-      tx.set(ref, {
+      const [daySnap, deviceSnap] = await Promise.all([
+        tx.get(dayRef),
+        tx.get(deviceRef)
+      ]);
+
+      if (deviceSnap.exists) {
+        return;
+      }
+
+      const prev = daySnap.exists ? Number(daySnap.data().count || 0) : 0;
+      tx.set(dayRef, {
         date: todayId,
         count: prev + 1,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      tx.set(deviceRef, {
+        deviceId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        source: 'device-signature-v2'
       }, { merge: true });
     });
 
