@@ -376,6 +376,21 @@
         <div id="exportMsg" class="msg"></div>
       </div>
 
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <h2>網站使用統計</h2>
+          <button id="refreshStatsBtn" class="btn blue" type="button">重新整理人數</button>
+        </div>
+        <div class="grid-3">
+          <div class="item"><div class="meta">今日使用人數</div><div id="visitTodayCount" style="font-size:28px;font-weight:700;">-</div></div>
+          <div class="item"><div class="meta">累計使用次數</div><div id="visitTotalCount" style="font-size:28px;font-weight:700;">-</div></div>
+          <div class="item"><div class="meta">最近更新</div><div id="visitUpdatedAt" style="font-size:18px;font-weight:600;">-</div></div>
+        </div>
+        <div class="section-note">統計方式：同一裝置同一天只計 1 次，避免短時間重複刷新被重複計算。</div>
+        <div id="visitRecentList" class="help" style="margin-top:10px;"></div>
+      </div>
+
       <div class="card">
         <h2>法語列表</h2>
         <div class="toolbar" style="margin-bottom:14px;">
@@ -465,6 +480,12 @@
     const clearAllBtn = document.getElementById('clearAllBtn');
     const fixImagePathsBtn = document.getElementById('fixImagePathsBtn');
     const exportMsg = document.getElementById('exportMsg');
+
+    const refreshStatsBtn = document.getElementById('refreshStatsBtn');
+    const visitTodayCount = document.getElementById('visitTodayCount');
+    const visitTotalCount = document.getElementById('visitTotalCount');
+    const visitUpdatedAt = document.getElementById('visitUpdatedAt');
+    const visitRecentList = document.getElementById('visitRecentList');
 
     const searchInput = document.getElementById('searchInput');
     const runSearchBtn = document.getElementById('runSearchBtn');
@@ -743,6 +764,77 @@
     }
 
 
+    const VISIT_STATS_COLLECTION = 'site_visits_daily';
+
+    function formatVisitDateTime(value) {
+      try {
+        if (!value) return '-';
+        let dateObj = null;
+        if (typeof value.toDate === 'function') dateObj = value.toDate();
+        else if (typeof value.seconds === 'number') {
+          const nanos = typeof value.nanoseconds === 'number' ? value.nanoseconds : 0;
+          dateObj = new Date(value.seconds * 1000 + Math.floor(nanos / 1000000));
+        } else if (value instanceof Date) dateObj = value;
+        else {
+          const parsed = new Date(value);
+          if (!Number.isNaN(parsed.getTime())) dateObj = parsed;
+        }
+        if (!dateObj) return '-';
+        return dateObj.toLocaleString('zh-TW', { hour12: false });
+      } catch (err) {
+        return '-';
+      }
+    }
+
+    async function loadVisitStats() {
+      try {
+        if (visitTodayCount) visitTodayCount.textContent = '讀取中…';
+        if (visitTotalCount) visitTotalCount.textContent = '讀取中…';
+        if (visitUpdatedAt) visitUpdatedAt.textContent = '讀取中…';
+        if (visitRecentList) visitRecentList.textContent = '整理最近統計中…';
+
+        const statsQuery = query(collection(db, VISIT_STATS_COLLECTION), orderBy('date', 'desc'));
+        const snap = await getDocs(statsQuery);
+        const rows = [];
+        snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+        if (!rows.length) {
+          if (visitTodayCount) visitTodayCount.textContent = '0';
+          if (visitTotalCount) visitTotalCount.textContent = '0';
+          if (visitUpdatedAt) visitUpdatedAt.textContent = '-';
+          if (visitRecentList) visitRecentList.textContent = '目前還沒有使用統計資料。';
+          return;
+        }
+
+        const todayId = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+        const y = todayId.getFullYear();
+        const m = String(todayId.getMonth() + 1).padStart(2, '0');
+        const d = String(todayId.getDate()).padStart(2, '0');
+        const todayKey = `${y}-${m}-${d}`;
+
+        const todayRow = rows.find(r => String(r.date || r.id || '') === todayKey);
+        const todayCount = Number(todayRow?.count || 0);
+        const totalCount = rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
+        const latestRow = rows.find(r => r.updatedAt) || rows[0];
+
+        if (visitTodayCount) visitTodayCount.textContent = String(todayCount);
+        if (visitTotalCount) visitTotalCount.textContent = String(totalCount);
+        if (visitUpdatedAt) visitUpdatedAt.textContent = formatVisitDateTime(latestRow?.updatedAt);
+
+        const recentText = rows.slice(0, 7).map(row => {
+          const dateLabel = String(row.date || row.id || '—');
+          const countLabel = Number(row.count || 0);
+          return `${dateLabel}：${countLabel} 次`;
+        }).join('　｜　');
+        if (visitRecentList) visitRecentList.textContent = recentText || '目前沒有最近統計資料。';
+      } catch (err) {
+        if (visitTodayCount) visitTodayCount.textContent = '-';
+        if (visitTotalCount) visitTotalCount.textContent = '-';
+        if (visitUpdatedAt) visitUpdatedAt.textContent = '-';
+        if (visitRecentList) visitRecentList.textContent = '讀取統計失敗：' + err.message;
+      }
+    }
+
     async function loadItems() {
       const q = query(collection(db, 'phrases'), orderBy('order', 'asc'));
       const snap = await getDocs(q);
@@ -891,6 +983,7 @@
         try {
           await loadItems();
           await loadThemeSettings();
+          await loadVisitStats();
         } catch (err) {
           setMessage(saveMsg, '讀取資料失敗：' + err.message, 'err');
         }
@@ -932,8 +1025,15 @@
     refreshBtn.addEventListener('click', async () => {
       await loadItems();
       await loadThemeSettings();
+      await loadVisitStats();
       setMessage(saveMsg, '資料已重新整理。', 'ok');
     });
+    if (refreshStatsBtn) {
+      refreshStatsBtn.addEventListener('click', async () => {
+        await loadVisitStats();
+        setMessage(saveMsg, '使用統計已重新整理。', 'ok');
+      });
+    }
     resetBtn.addEventListener('click', clearForm);
 
     ['change','blur','paste'].forEach(evt => {
