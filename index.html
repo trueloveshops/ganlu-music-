@@ -1310,17 +1310,44 @@ function goToPrevQuote() {
   const normalized = normalizeRotationStateForCurrentQuotes(readQuoteRotationState());
   let { currentSignature, seen, history, historyIndex } = normalized;
 
+  // 1. 如果已經有瀏覽歷史，就回到剛剛看過的上一則
   if (historyIndex > 0) {
     historyIndex -= 1;
     const prevSignature = history[historyIndex];
-    return setCurrentQuoteBySignature(prevSignature, { seen, currentSignature: prevSignature, history, historyIndex });
+    return setCurrentQuoteBySignature(prevSignature, {
+      seen,
+      currentSignature: prevSignature,
+      history,
+      historyIndex
+    });
   }
 
-  if (currentSignature) {
-    return setCurrentQuoteBySignature(currentSignature, { seen, currentSignature, history, historyIndex });
+  // 2. 如果剛開啟沒有更早歷史，就照目前 QUOTES 清單往前一筆
+  const currentIndex = QUOTES.findIndex(item => quoteSignature(item) === currentSignature);
+  const baseIndex = currentIndex >= 0 ? currentIndex : currentQuoteIndex;
+  const prevIndex = (baseIndex - 1 + QUOTES.length) % QUOTES.length;
+  const prevItem = QUOTES[prevIndex];
+  const prevSignature = quoteSignature(prevItem);
+
+  if (!seen.includes(prevSignature)) {
+    seen.push(prevSignature);
   }
 
-  return applyDailyQuoteRotation();
+  history = history.slice(0, Math.max(0, historyIndex + 1));
+
+  if (currentSignature && !history.includes(currentSignature)) {
+    history.push(currentSignature);
+  }
+
+  history.push(prevSignature);
+  historyIndex = history.length - 1;
+
+  return setCurrentQuoteBySignature(prevSignature, {
+    seen,
+    currentSignature: prevSignature,
+    history,
+    historyIndex
+  });
 }
 
 function renderImmediateFallback() {
