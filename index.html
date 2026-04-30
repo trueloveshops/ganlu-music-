@@ -1322,11 +1322,25 @@ function goToPrevQuote() {
     });
   }
 
-  // 2. 如果剛開啟沒有更早歷史，就照目前 QUOTES 清單往前一筆
-  const currentIndex = QUOTES.findIndex(item => quoteSignature(item) === currentSignature);
-  const baseIndex = currentIndex >= 0 ? currentIndex : currentQuoteIndex;
-  const prevIndex = (baseIndex - 1 + QUOTES.length) % QUOTES.length;
-  const prevItem = QUOTES[prevIndex];
+  // 2. 如果剛開啟沒有更早歷史，不要照 QUOTES 陣列往前翻，
+  //    因為圖片法語集中在後面，會一直翻到圖片。
+  //    這裡改成從「未看過的文字法語優先池」抽一則。
+  let unseenText = QUOTES.filter(item => {
+    return !isImageQuote(item) && !seen.includes(quoteSignature(item));
+  });
+
+  if (!unseenText.length) {
+    unseenText = QUOTES.filter(item => !isImageQuote(item));
+    seen = [];
+  }
+
+  const priorityTextPool = getPriorityTextPool(unseenText, PRIORITY_TEXT_POOL_SIZE);
+  const prevItem =
+    getRandomItem(priorityTextPool) ||
+    getRandomItem(unseenText) ||
+    QUOTES.find(item => !isImageQuote(item)) ||
+    QUOTES[0];
+
   const prevSignature = quoteSignature(prevItem);
 
   if (!seen.includes(prevSignature)) {
