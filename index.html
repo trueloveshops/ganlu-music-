@@ -2108,8 +2108,32 @@ searchPanel.addEventListener('click', (e) => {
   if (pagerBtn) {
     e.preventDefault();
     e.stopPropagation();
-    if (!pagerBtn.disabled) changeSearchPage(pagerBtn.dataset.pageType, Number(pagerBtn.dataset.pageDelta || 0));
-    return;
+   if (!pagerBtn.disabled) {
+  const type = pagerBtn.dataset.pageType;
+  const delta = Number(pagerBtn.dataset.pageDelta);
+
+  const pager = pagerBtn.closest('.search-pager');
+  const input = pager ? pager.querySelector('.page-jump-input') : null;
+
+  if (input) {
+    const currentPage = Number(input.getAttribute('value') || input.value);
+    const inputPage = Number(input.value);
+    const totalPages = Number(input.max) || 1;
+
+    if (
+      Number.isFinite(inputPage) &&
+      inputPage >= 1 &&
+      inputPage <= totalPages &&
+      inputPage !== currentPage
+    ) {
+      changeSearchPage(type, inputPage - currentPage);
+      return;
+    }
+  }
+
+  changeSearchPage(type, delta);
+}
+return;
   }
 
   const itemEl = e.target.closest('.search-item[data-action]');
