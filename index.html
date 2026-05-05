@@ -449,7 +449,25 @@ html, body {
   color:rgba(255,255,255,0.9);
   cursor:pointer;
 }
+.page-jump-input {
+  width: 2.4em;
+  border: none;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  padding: 0;
+  margin: 0 2px;
+  outline: none;
+}
 
+.page-jump-input:focus {
+  border-bottom-width: 2px;
+}
+
+</style>
+</head>
 </style>
 </head>
 <body>
@@ -1955,9 +1973,19 @@ function buildSearchPager(type, page, total) {
   const totalPages = Math.max(1, Math.ceil(total / SEARCH_PAGE_SIZE));
   return `
     <div class="search-pager">
-      <button type="button" class="search-pager-btn" data-page-type="${type}" data-page-delta="-1" ${page <= 0 ? 'disabled' : ''}>‹</button>
-      <div class="page-info">${page + 1} / ${totalPages}　共 ${total} 筆</div>
-      <button type="button" class="search-pager-btn" data-page-type="${type}" data-page-delta="1" ${page >= totalPages - 1 ? 'disabled' : ''}>›</button>
+      <button type="button" class="search-pager-btn" data-page-type="${type}" data-page-delta="-1">‹</button>
+      <div class="page-info">
+        <input
+          class="page-jump-input"
+          type="number"
+          min="1"
+          max="${totalPages}"
+          value="${page + 1}"
+          data-page-type="${type}"
+          aria-label="輸入頁碼"
+        > / ${totalPages}　共 ${total} 筆
+      </div>
+      <button type="button" class="search-pager-btn" data-page-type="${type}" data-page-delta="1">›</button>
     </div>`;
 }
 
