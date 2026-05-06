@@ -1381,6 +1381,13 @@ function setCurrentQuoteBySignature(signature, state = null) {
 }
 
 function applyDailyQuoteRotation(forceRefresh = false) {
+   const today = getTaipeiDateId();
+  const lastDate = localStorage.getItem("quote_date");
+
+  if (lastDate !== today) {
+       localStorage.removeItem("quote_rotation_state");
+    localStorage.setItem("quote_date", today);
+  }
   if (!QUOTES.length) {
     currentQuoteIndex = 0;
     return 0;
