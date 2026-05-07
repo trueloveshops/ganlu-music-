@@ -1571,7 +1571,7 @@ function subscribeFirebaseSingleSource() {
   firebaseHasConnected = true;
 
   const db = initFirebaseSingleSource();
-
+applyDailyQuoteRotation(true);
   quoteText.textContent = '載入今日法語…';
   sourceLink.textContent = '';
   sourceLink.removeAttribute('href');
