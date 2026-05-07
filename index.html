@@ -967,23 +967,20 @@ const FIREBASE_SINGLE_SOURCE_CONFIG = {
   appId: "1:661017374980:web:904c57d0f61fb9b51ba051"
 };
 
-function initFirebaseSingleSource() {
+function initFirebase() {
   try {
-    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_SINGLE_SOURCE_CONFIG);
-    return firebase.firestore();
+    const app = firebase.apps.length
+      ? firebase.app()
+      : firebase.initializeApp(FIREBASE_SINGLE_SOURCE_CONFIG);
+
+    const db = firebase.firestore(app);
+    const auth = firebase.auth(app);
+
+    return { app, db, auth };
+
   } catch (e) {
     console.warn('Firebase 初始化失敗：', e);
-    return null;
-  }
-}
-
-function initFirebaseAuthSingleSource() {
-  try {
-    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_SINGLE_SOURCE_CONFIG);
-    return firebase.auth();
-  } catch (e) {
-    console.warn('Firebase Auth 初始化失敗：', e);
-    return null;
+    return { app: null, db: null, auth: null };
   }
 }
 
